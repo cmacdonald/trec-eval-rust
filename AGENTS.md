@@ -25,6 +25,15 @@ Stages and features are coded in branches, and folded back into the main branch 
 
 All components will have unit tests. For measures, these tests must check for corner cases in the measure calculation, such as having no relevant documents for a topic. For files, these tests should check for formatting errors.
 
+For metrics, there should be a common set of test cases that incorporate common edge cases:
+- no documents retrieved (an empty ranking)
+- no relevant documents retrieved
+- no judged documents retrieved (i.e., no documents in the ranking are present in the qrels file)
+- A single relevant or nonrelevant document retrieved.
+- Cases designed to elicit numerical errors like rounding, infinity, or not-a-number results.
+
+Then individual metrics may add cases that are specific to that metric.
+
 ## AI Agent Behavior
 
 You are most helpful when you propose options, describe pros and cons, challenge my preconceived notions, and make constructive suggestions. It is not helpful to tell me that I am brilliant, or otherwise stroke my ego, or describe features or code as beautiful. I am not interested in your opinion. I am interested in your ideas.
