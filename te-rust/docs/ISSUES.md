@@ -78,6 +78,33 @@ This document tracks active design questions, structural decisions, and implemen
     *   **Option A (Recommended - Hybrid Static/Dynamic)**: Retain a single unified `Measure` trait, but introduce an `EvaluationType` enum (e.g., `Standard`, `Preferences`, `JudgmentGroups`) that each `Measure` must return via `fn eval_type(&self) -> EvaluationType`. The alignment engine compiles the parsed raw formats into an `EvalState` enum variant matching the file's format. Prior to execution, the harness does a type check to verify that all requested measures are compatible with the loaded `EvalState` format, aborting immediately with a clear diagnostic message if a mismatch is found.
     *   **Option B (Separate Traits)**: Split measures into entirely disjoint traits (e.g. `StandardMeasure` and `PrefsMeasure`). While statically checking compatibility, this prevents us from maintaining a simple heterogenous active-measure list (`Vec<Box<dyn Measure>>`) in the harness, requiring separate collection vectors and duplicate evaluation loop code.
 
+### 11. Regression Testing Harness in Rust
+*   **Type**: Design
+*   **Status**: Open
+*   **Description**: The C `trec_eval` includes a series of regression check files in its `test/` directory, verified using a `Makefile` target `quicktest`. To ensure that our Rust reimplementation produces identical results down to formatting and ties, we need a way to run these exact regression cases. How do we implement this inside the idiomatic Rust testing ecosystem?
+*   **Options**:
+    *   **Option A (Recommended)**: Create a `tests/regression.rs` integration test suite. Copy all `trec_eval/test/` data files into `te-rust/tests/test_data/`. During `cargo test`, compile the `te-rust` binary, execute it as a child process using `std::process::Command` against these copied inputs, capture the output stream, and compare it line-by-line against C's expected `out.*` files.
+    *   **Option B**: Build a custom external bash script (`quicktest.sh`) to run the checks after compiling. While simple, this does not integrate with standard Rust `cargo test` workflows, making it harder for developers and CI pipelines to execute.
+
+### 12. Avoiding Boundary Test Duplication via Shared Declarative Macros
+*   **Type**: Design
+*   **Status**: Open
+*   **Description**: To check corner cases in metric calculation, we need to test boundary conditions (e.g. empty rankings, zero relevant documents, etc.) across dozens of different measures. Copying the mock-state setup code and assertions for each measure results in significant duplication. How do we avoid this?
+*   **Options**:
+    *   **Option A (Recommended)**: Create a shared test helper library containing unified state generators (like `make_mock_state`) and define a custom Rust macro `test_measure_boundaries!` to let metrics declare their expected boundary behaviors in a clean, unified, data-driven way.
+    *   **Option B**: Let each measure define its own bespoke test assertions from scratch. While flexible, this leads to heavy maintenance overhead and high code repetition.
+
+### 13. Enforcing Uniform Boundary Testing across all Metrics
+*   **Type**: Design
+*   **Status**: Open
+*   **Description**: Even with helpers or macros, developers may still forget to write boundary tests for newly added metrics. To guarantee that standard corner cases (like empty rankings, zero-relevance topics, and unjudged-only pools) are tested *uniformly* across all current and future metrics, we need an automated enforcement mechanism.
+*   **Options**:
+    *   **Option A (Recommended - Automated Registry Loop)**: Leverage our central measure registry (e.g., `fn get_all_measures() -> Vec<Box<dyn Measure>>`) and write a single, unified test suite in `tests/uniform_boundaries.rs`. This suite automatically loops over every registered measure and subjects them to the entire boundary matrix. It asserts general mathematical invariants (e.g. standard precision/recall/MAP float measures must return exactly `0.0` under empty rankings or zero-relevance topics, and count measures must return `0` under empty rankings, and NO measure should ever panic or return NaN/infinite values).
+    *   **Option B**: Rely solely on manual review or static checks to ensure each metric file has written its own separate test suite. This option is error-prone and doesn't scale as the number of metrics grows.
+
+
+
+
 
 
 
