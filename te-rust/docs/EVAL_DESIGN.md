@@ -179,12 +179,16 @@ pub trait Measure: Send + Sync {
     /// The category of relevance judgments required by this measure.
     fn eval_type(&self) -> EvaluationType;
 
-    /// Initialize the measure with a parameter string (e.g., "5,10,15" for "P").
     /// Returns the exact sub-metric names to be calculated (e.g., `["P_5", "P_10", "P_15"]`).
-    fn init(&self, params: Option<&str>) -> Result<Vec<String>, String>;
+    /// These are determined and pre-computed during struct instantiation based on custom parameters.
+    fn sub_metrics(&self) -> Vec<String>;
+
+    /// Returns the initial values for the running totals of this measure (e.g., `[Float(0.0), Float(0.0)]`).
+    /// The harness uses this to initialize the query aggregation accumulator.
+    fn initial_values(&self) -> Vec<MetricValue>;
 
     /// Calculate the score(s) for a single query.
-    /// Returns a vector of MetricValue corresponding in order to the sub-metric names returned by `init`.
+    /// Returns a vector of MetricValue corresponding in order to the sub-metric names returned by `sub_metrics`.
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue>;
 
     /// Accumulate a single query's scores into a running total.
@@ -226,7 +230,7 @@ pub trait Measure: Send + Sync {
 Here is the exact mathematical implementation design for some of the most critical standard metrics.
 
 ### 5.1 Mean Average Precision (`map`)
-*   **Init Sub-metrics**: `["map"]`
+*   **Sub-metrics**: `["map"]`
 *   **Query Calculation**:
     For each rank $i$ (0-indexed) where `results_rel_list[i] >= config.relevance_level`:
     *   Increment `rel_so_far`.
@@ -235,7 +239,7 @@ Here is the exact mathematical implementation design for some of the most critic
 *   **Average**: Standard arithmetic mean.
 
 ### 5.2 Geometric Mean MAP (`gm_map`)
-*   **Init Sub-metrics**: `["gm_map"]`
+*   **Sub-metrics**: `["gm_map"]`
 *   **Query Calculation**:
     Compute Average Precision (AP) exactly as in `map`.
     *   The single-query value stored is the natural logarithm of the score, bounded from below by `MIN_GEO_MEAN` ($10^{-5}$):
@@ -247,7 +251,7 @@ Here is the exact mathematical implementation design for some of the most critic
         $$\text{summary\_score} = \exp\left(\frac{\text{sum}}{\text{denominator}}\right)$$
 
 ### 5.3 Precision at Cutoffs (`P`)
-*   **Init Sub-metrics**: Default cutoffs are `[5, 10, 15, 20, 30, 100, 200, 500, 1000]`. If parameters are passed, parse as comma-separated integers.
+*   **Sub-metrics**: Default cutoffs are `[5, 10, 15, 20, 30, 100, 200, 500, 1000]`. If parameters are passed, parse as comma-separated integers.
 *   **Query Calculation**:
     For each cutoff $C$:
     *   Let $R_C$ be the number of relevant documents retrieved up to rank $C$.

@@ -6,6 +6,36 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Active Issues
 
+### 15. Lack of Design for Preference-Based Evaluations
+*   **Type**: Design (Design Stage)
+*   **Status**: Active
+*   **Description**: C's preference-based evaluation (`form_prefs_counts.c`, ~1,200 lines) implements transitive closures of partial preferences, equivalence class partitioning, and complex zone counting across five topological areas (A1–A5). `EVAL_DESIGN.md` completely glosses over this, declaring only an undefined `Prefs(PrefsEvalState)`. We need a robust mathematical design for porting this logic to Rust.
+
+### 16. The `bogus_ranking` Ingestion Hack
+*   **Type**: Design (Design Stage)
+*   **Status**: Active
+*   **Description**: For missing queries under `-c`, C `trec_eval` creates a `bogus_ranking` containing exactly one non-relevant document (`ceci_nest_pas_un_docno`) to avoid division by zero. C then runs a hardcoded post-evaluation override loop to reset corrupted counts (like `num_ret` and `utility`). `te-rust` needs to define how it handles missing queries natively without these hacks while preserving exact equivalence.
+
+### 17. Defensive `rel_levels` Bounds Sizing
+*   **Type**: Design (Design Stage)
+*   **Status**: Active
+*   **Description**: In C, `rel_levels` is dynamically allocated based on the maximum relevance score in the qrels (`max_rel + 1`). If `max_rel < relevance_level`, metrics like `bpref` still loop up to `relevance_level`, causing an out-of-bounds read. In Rust, this will cause thread panics. `te-rust` must defensively size `rel_levels` or use safe default-value lookups.
+
+### 18. Asymmetric Comment Handling
+*   **Type**: Design (Design Stage)
+*   **Status**: Active
+*   **Description**: In C, comments starting with `#` are only skipped if the `#` is in the very first column (no leading whitespace). `IO_DESIGN.md` suggests trimming whitespace before checking for comments, which will cause `te-rust` to accept lines with leading whitespace followed by `#` as comments, resulting in a parsing discrepancy.
+
+### 19. Fragile Testing Harness: `cargo run` and Exact String Comparisons
+*   **Type**: Testing (Design Stage)
+*   **Status**: Active
+*   **Description**: `TEST_DESIGN.md` invokes `cargo run --bin te-rust` recursively, which blocks cargo locks and is extremely slow during parallel execution. It should use `env!("CARGO_BIN_EXE_te-rust")`. Furthermore, strict line-by-line string comparison will fail on minor floating-point rounding variations or spacing differences. We need a relational regression parser that compares structured triples with a numerical epsilon.
+
+### 20. Infallible Float Sorting and Determinism
+*   **Type**: Design (Design Stage)
+*   **Status**: Active
+*   **Description**: The design relies on `.partial_cmp().unwrap()` for sorting. If a non-finite float (such as `NaN`) slips through, the application will panic. Using the standard library's native `f64::total_cmp` provides a robust, infallible total ordering over all floats without unwrapping or external dependencies.
+
 ---
 
 ## Resolved Issues
@@ -81,12 +111,8 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Status**: Resolved (Option A)
 *   **Description**: Resolved to implement an automated boundary checking suite inside `tests/uniform_boundaries.rs`. This suite automatically queries our central measure registry (`get_all_measures()`) and runs all registered standard measures against core boundary scenarios (e.g. empty ranking, zero-relevance topic). It asserts universal mathematical invariants (no non-finite values, standard float metrics defaulting safely to zero, integer counts defaulting to 0) dynamically, guaranteeing complete test coverage for all current and future metrics automatically.
 
-
-
-
-
-
-
-
-
+### 14. Stateless `Measure` Trait vs. Parameter Mutation
+*   **Type**: Design
+*   **Status**: Resolved (Stateless Factory Pattern)
+*   **Description**: Resolved to refactor the `Measure` trait to be completely stateless and thread-safe. Instead of calling a mutable `init(&self)` method on a single pre-allocated metric instance, individual metric instances are instantiated up front with their specific parsed parameters (e.g. cutoffs) as immutable fields. The trait's `sub_metrics(&self)` and `initial_values(&self)` methods expose these pre-computed configurations to the evaluation harness, enabling efficient, lock-free parallel execution.
 
