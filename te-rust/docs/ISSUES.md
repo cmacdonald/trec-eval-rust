@@ -21,11 +21,6 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Status**: Active
 *   **Description**: In C, `rel_levels` is dynamically allocated based on the maximum relevance score in the qrels (`max_rel + 1`). If `max_rel < relevance_level`, metrics like `bpref` still loop up to `relevance_level`, causing an out-of-bounds read. In Rust, this will cause thread panics. `te-rust` must defensively size `rel_levels` or use safe default-value lookups.
 
-### 18. Asymmetric Comment Handling
-*   **Type**: Design (Design Stage)
-*   **Status**: Active
-*   **Description**: In C, comments starting with `#` are only skipped if the `#` is in the very first column (no leading whitespace). `IO_DESIGN.md` suggests trimming whitespace before checking for comments, which will cause `te-rust` to accept lines with leading whitespace followed by `#` as comments, resulting in a parsing discrepancy.
-
 ### 19. Fragile Testing Harness: `cargo run` and Exact String Comparisons
 *   **Type**: Testing (Design Stage)
 *   **Status**: Active
@@ -115,3 +110,8 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Type**: Design
 *   **Status**: Resolved (total_cmp & Measure-Dependent guards)
 *   **Description**: Resolved to incorporate `f64::total_cmp` for high-performance, branchless, and crash-safe document sorting within the alignment engine, coupled with strict fail-fast validation in the parser to reject `NaN` and `Infinity` float inputs. Furthermore, recognized that "correct fallback score" under undefined states is measure-dependent (e.g., 0.0 vs utility offsets); resolved that each individual metric `Measure` implementation must defensively evaluate its own specific mathematical boundaries and return its designated standard fallback rather than propagating raw floating-point `NaN` or `Infinity` values.
+
+### 18. Asymmetric Comment Handling
+*   **Type**: Design
+*   **Status**: Resolved (Option B - Relaxed Quality-of-Life)
+*   **Description**: Resolved to adopt Option B (relaxed quality-of-life parsing), which trims leading whitespace before checking for `#` comment characters. Since comment support is a highly recent addition in `trec_eval`, backward-compatibility of files from `te-rust` to old legacy C versions is not a primary concern. Allowing leading spaces before comments provides a much better and more forgiving user experience for manual file editing, avoiding fatal parsing failures on minor indentation variations.
