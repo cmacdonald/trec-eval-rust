@@ -14,7 +14,7 @@ This document outlines the detailed design of the Input/Output (I/O) and parsing
     *   `qid`: Query/topic ID (`String`).
     *   `iter`: Query iteration/context (`String`, ignored).
     *   `docno`: Document ID (`String`).
-    *   `rel`: Relevance judgment (`i64` between -127 and 127).
+    *   `rel`: Relevance judgment (`i64` between -1,000,000 and 1,000,000).
 *   **Comments & Blank Lines**: Skipped. Comments start with `#` in the first column.
 *   **Strictness**: Must have exactly 4 fields. Extra non-whitespace trailing characters are rejected as malformed.
 
@@ -26,7 +26,7 @@ This document outlines the detailed design of the Input/Output (I/O) and parsing
     *   `qid`: Query/topic ID (`String`).
     *   `ujg`: User judgment group (`String`).
     *   `docno`: Document ID (`String`).
-    *   `rel`: Relevance judgment (`i64` between -127 and 127).
+    *   `rel`: Relevance judgment (`i64` between -1,000,000 and 1,000,000).
 *   **Comments & Blank Lines**: Skipped. Comments start with `#` in the first column.
 *   **Strictness**: Must have exactly 4 fields. Extra non-whitespace trailing characters are rejected as malformed.
 
@@ -260,7 +260,7 @@ pub enum IOError {
 7. Validate field count:
     * For Qrels: Must be exactly 4 tokens.
     * For Run/Results: Must be at least 6 tokens.
-8. Parse integers and floats safely using standard `.parse::<i64>()` and `.parse::<f64>()`.
+8. Parse integers and floats safely using standard `.parse::<i64>()` and `.parse::<f64>()`. For relevance values (`rel`), validate that they fall within a generous and safe range of `-1,000,000` to `1,000,000` to support modern preference-based dense scales while permanently preventing excessive vector allocations.
 9. Store records sequentially.
 10. Populate the `QrelsData` or `RunData` structures, sorting internal lists if necessary or leaving sorting as an explicit post-processing step before metric calculations. Keep all comments preserved in the `comments` field.
 

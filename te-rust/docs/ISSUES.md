@@ -16,11 +16,6 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Status**: Active
 *   **Description**: For missing queries under `-c`, C `trec_eval` creates a `bogus_ranking` containing exactly one non-relevant document (`ceci_nest_pas_un_docno`) to avoid division by zero. C then runs a hardcoded post-evaluation override loop to reset corrupted counts (like `num_ret` and `utility`). `te-rust` needs to define how it handles missing queries natively without these hacks while preserving exact equivalence.
 
-### 17. Defensive `rel_levels` Bounds Sizing
-*   **Type**: Design (Design Stage)
-*   **Status**: Active
-*   **Description**: In C, `rel_levels` is dynamically allocated based on the maximum relevance score in the qrels (`max_rel + 1`). If `max_rel < relevance_level`, metrics like `bpref` still loop up to `relevance_level`, causing an out-of-bounds read. In Rust, this will cause thread panics. `te-rust` must defensively size `rel_levels` or use safe default-value lookups.
-
 ### 19. Fragile Testing Harness: `cargo run` and Exact String Comparisons
 *   **Type**: Testing (Design Stage)
 *   **Status**: Active
@@ -115,3 +110,8 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Type**: Design
 *   **Status**: Resolved (Option B - Relaxed Quality-of-Life)
 *   **Description**: Resolved to adopt Option B (relaxed quality-of-life parsing), which trims leading whitespace before checking for `#` comment characters. Since comment support is a highly recent addition in `trec_eval`, backward-compatibility of files from `te-rust` to old legacy C versions is not a primary concern. Allowing leading spaces before comments provides a much better and more forgiving user experience for manual file editing, avoiding fatal parsing failures on minor indentation variations.
+
+### 17. Defensive `rel_levels` Bounds Sizing
+*   **Type**: Design
+*   **Status**: Resolved (Defensive Vector Sizing & Safe Getters)
+*   **Description**: Resolved to implement a three-layer boundary protection design for relevance counts. First, to support modern research on pairwise tournament and dense-scale preference evaluations while preventing OOM denial-of-service vulnerabilities, the lexical parser strictly validates that parsed relevance levels fall within a safe, generous range of `-1,000,000` to `1,000,000` (max 8MB memory allocation). Second, the alignment engine defensively sizes the `rel_levels` flat vector to `max(max_rel + 1, config.relevance_level + 1)`. Third, all metrics are mandated to retrieve counts from `rel_levels` using infallible, bounds-checked getters (e.g. `.get(j).copied().unwrap_or(0)`), guaranteeing 100% crash-free execution.
