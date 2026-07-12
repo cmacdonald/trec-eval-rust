@@ -31,11 +31,6 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Status**: Active
 *   **Description**: `TEST_DESIGN.md` invokes `cargo run --bin te-rust` recursively, which blocks cargo locks and is extremely slow during parallel execution. It should use `env!("CARGO_BIN_EXE_te-rust")`. Furthermore, strict line-by-line string comparison will fail on minor floating-point rounding variations or spacing differences. We need a relational regression parser that compares structured triples with a numerical epsilon.
 
-### 20. Infallible Float Sorting and Determinism
-*   **Type**: Design (Design Stage)
-*   **Status**: Active
-*   **Description**: The design relies on `.partial_cmp().unwrap()` for sorting. If a non-finite float (such as `NaN`) slips through, the application will panic. Using the standard library's native `f64::total_cmp` provides a robust, infallible total ordering over all floats without unwrapping or external dependencies.
-
 ---
 
 ## Resolved Issues
@@ -116,3 +111,7 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Status**: Resolved (Stateless Factory Pattern)
 *   **Description**: Resolved to refactor the `Measure` trait to be completely stateless and thread-safe. Instead of calling a mutable `init(&self)` method on a single pre-allocated metric instance, individual metric instances are instantiated up front with their specific parsed parameters (e.g. cutoffs) as immutable fields. The trait's `sub_metrics(&self)` and `initial_values(&self)` methods expose these pre-computed configurations to the evaluation harness, enabling efficient, lock-free parallel execution.
 
+### 20. Infallible Float Sorting and Determinism
+*   **Type**: Design
+*   **Status**: Resolved (total_cmp & Measure-Dependent guards)
+*   **Description**: Resolved to incorporate `f64::total_cmp` for high-performance, branchless, and crash-safe document sorting within the alignment engine, coupled with strict fail-fast validation in the parser to reject `NaN` and `Infinity` float inputs. Furthermore, recognized that "correct fallback score" under undefined states is measure-dependent (e.g., 0.0 vs utility offsets); resolved that each individual metric `Measure` implementation must defensively evaluate its own specific mathematical boundaries and return its designated standard fallback rather than propagating raw floating-point `NaN` or `Infinity` values.

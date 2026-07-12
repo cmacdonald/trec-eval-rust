@@ -288,11 +288,13 @@ Here is the exact mathematical implementation design for some of the most critic
 
 Standard floating-point operations can introduce differences due to precision and ordering. To guarantee identical outputs to `trec_eval`:
 
-1.  **Division by Zero**:
-    *   If `num_rel == 0` for a query (no relevant documents exist), all precision and recall-based scores for that topic are defined as `0.0`.
-    *   If `num_ret == 0` (no documents retrieved), retrieved-based scores are `0.0`.
-2.  **Float Constraints**:
-    *   Since similarity scores and relevance levels are validated as finite numbers during parsing, we use standard `.partial_cmp().unwrap()` safely for sorting and tie-breaking.
+1.  **Division by Zero & NaN Prevention (Measure-Dependent)**:
+    *   Boundary conditions (e.g., zero relevant documents in qrels, zero documents retrieved, or zero ideal DCG) must not generate raw floating-point `NaN` or `Infinity` values.
+    *   Rather than assuming a universal fallback of `0.0`, the correct score in these undefined or zero-division states is **measure-dependent** and must match the exact behavioral specifications of the corresponding metric in `trec_eval` (for example, some utility metrics or cost-benefit measures may default to a baseline cost constant rather than `0.0`).
+    *   Each individual `Measure` implementation is responsible for explicitly checking for its own mathematical boundary cases and returning its specific defined safe fallback value to prevent corrupt non-finite floats from propagating into the accumulation/averaging phase.
+2.  **Infallible Float Sorting and Parsing Constraints**:
+    *   During parsing, the ingestion engine strictly validates and rejects non-finite floating-point strings (`NaN`, `Infinity`, `inf`) to prevent corrupt values from entering the evaluation pipeline.
+    *   The alignment engine sorts document similarity scores descending using `f64::total_cmp` (stabilized in Rust 1.62). This compiles to branchless, high-performance bit-level instructions, eliminates the need for `.partial_cmp().unwrap()`, and guarantees deterministic tie-breaking even if un-validated float representations are encountered in memory.
 3.  **Geometric Mean Underflow**:
     *   Always use `1e-5` (`MIN_GEO_MEAN`) as the floor for log calculation to prevent $\ln(0)$ running into negative infinity.
 
