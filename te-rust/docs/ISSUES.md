@@ -6,11 +6,6 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Active Issues
 
-### 15. Lack of Design for Preference-Based Evaluations
-*   **Type**: Design (Design Stage)
-*   **Status**: Active
-*   **Description**: C's preference-based evaluation (`form_prefs_counts.c`, ~1,200 lines) implements transitive closures of partial preferences, equivalence class partitioning, and complex zone counting across five topological areas (A1–A5). `EVAL_DESIGN.md` completely glosses over this, declaring only an undefined `Prefs(PrefsEvalState)`. We need a robust mathematical design for porting this logic to Rust.
-
 ### 19. Fragile Testing Harness: `cargo run` and Exact String Comparisons
 *   **Type**: Testing (Design Stage)
 *   **Status**: Active
@@ -115,3 +110,8 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Type**: Design
 *   **Status**: Resolved (Native Empty State Evaluation)
 *   **Description**: Resolved to natively evaluate missing queries under complete set evaluation (`-c`) using empty query execution states (`Vec::new()`), completely eliminating the internal `bogus_ranking` and the subsequent fragile, hardcoded post-evaluation override loops. Because our metric architecture requires measures to self-contain their boundary conditions defensively (as resolved in Issue 20), an empty state natively evaluates to correct baseline totals and averages across all standard, utility, and complex metrics. Hand-inserted dummy lines in run files are still parsed as normal, maintaining 100% parity with C `trec_eval` under all execution states.
+
+### 15. Lack of Design for Preference-Based Evaluations
+*   **Type**: Design
+*   **Status**: Resolved (Full Preference Mapping & Dual-Strategy Testing)
+*   **Description**: Resolved to specify a comprehensive, type-safe Rust representation for the entire preference evaluation logic, completely defining the previously empty `PrefsEvalState`, `JudgmentGroup`, and `EquivalenceClass` structures in `EVAL_DESIGN.md`. Documented the alignment engine's exact internal doc ranking assignment (0..num_judged), Equivalence Class sorting, and partial-order preference matrix construction. To prevent regression bugs and guarantee 100% behavioral alignment with C's complex `form_prefs_counts.c`, we resolved to implement two independent transitive closure algorithms: a naive C-style iterative matrix exponentiation (the reference oracle) and a bit-parallel Warshall's algorithm (production optimizer). The evaluation engine will run both strategies in parallel during development and compare resulting matrices. This guarantees that we verify the production optimizer's safety under all imaginable dataset conditions before disabling the naive reference in production. Fully mapped the five combinatorial topological count areas (A1–A5) for both layouts.

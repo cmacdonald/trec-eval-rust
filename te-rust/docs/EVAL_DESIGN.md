@@ -123,8 +123,51 @@ To maintain 100% score parity with C `trec_eval` under complete set evaluation (
         *   `results_rel_list` is initialized as a completely empty vector (`Vec::new()`), indicating natively that 0 documents were retrieved.
         *   `rel_levels` is populated with the correct judgment counts from the `QrelsQuery` records, and `num_rel` is computed normally.
 3.  **Self-Contained Metric Execution**:
-    *   All metric implementations must handle empty `results_rel_list` inputs defensively.
     *   Because metrics evaluate this empty state natively (e.g., precision/recall-based measures return `0.0`, count-based measures return `0.0`, and utility measures return their baseline cost constants directly), there is no need to insert fake document strings into memory or run post-evaluation override cleanups. This ensures modular, robust, and crash-safe evaluation.
+
+### 3.3 Aligning and Counting Preferences (`PrefsEvalState`)
+When evaluating preference files (`trec_prefs`) or qrels-based preference formats (`qrels_prefs`):
+
+1.  **Assigning Internal Ranks (0..num_judged)**:
+    *   Find the set of all unique document IDs mentioned in any preference relation for the query. Let this count be `num_judged`.
+    *   Sort this set such that documents that were actually retrieved in the run are placed first (ordered by their retrieved rank, indices `0` to `num_judged_ret - 1`).
+    *   Place all remaining unretrieved judged documents next (indices `num_judged_ret` to `num_judged - 1`), keeping their document IDs sorted lexicographically.
+    *   This internal rank (0..num_judged-1) uniquely and deterministically represents each judged document. A document was retrieved if and only if its internal rank `rank < num_judged_ret`.
+
+2.  **Representing and Propagating Preferences**:
+    *   **Representation A (Equivalence Classes)**: Used if there is only 1 judgment sub-group. Documents are grouped into `EquivalenceClass` structures, sorted by decreasing relevance level `rel_level`. All pairs between separate classes imply a preference (higher `rel_level` preferred to lower `rel_level`).
+    *   **Representation B (Preference Matrix)**: Used if there are multiple sub-groups. We initialize a boolean matrix `matrix` of size `num_judged * num_judged` to `false`. We set `matrix[i][j] = true` if a direct preference $i > j$ is stated in any sub-group of this JG.
+    *   **Transitive Closure**: Because preferences in multiple sub-groups can chain (e.g. $A > B$ and $B > C$), we must compute the transitive closure of the preference relation. To prevent any chance of regression bugs or edge-case divergences, we will implement **two independent transitive closure strategies** inside the codebase to enable comprehensive differential testing during development:
+        *   **Strategy A: Naive C-Style Matrix Exponentiation (Naive Reference)**:
+            An exact port of Chris Buckley's original iterative matrix multiplication loop from `form_prefs_counts.c`. This serves as our strict behavioral oracle.
+        *   **Strategy B: Bit-Parallel Warshall's Algorithm (Production Optimisation)**:
+            An $O(N^3 / 64)$ bit-vector optimized Warshall transitive closure algorithm utilizing flat word arrays and sequential CPU bit manipulation operations.
+        *   **Comparative Validation**: The evaluation engine will include a developer assertion hook that runs both strategies in parallel and compares their resulting matrices. This guarantees that we verify Strategy B's safety under all imaginable dataset conditions before disabling Strategy A in production.
+
+3.  **Accumulating Combinatorial Counts**:
+    *   For **Equivalence Classes**:
+        We compare every pair of classes $ec1 < ec2$ (where $ec1$ has higher relevance than $ec2$). For every document rank $ptr1 \in ec1$ and $ptr2 \in ec2$:
+        *   Increment `pref_counts[ptr1][ptr2] += 1`.
+        *   If both are retrieved ($ptr1 < num\_judged\_ret$ and $ptr2 < num\_judged\_ret$):
+            *   If $ptr1 < ptr2$ (preferred doc $ptr1$ is retrieved before $ptr2$): increment `num_prefs_fulfilled_ret`.
+            *   Else: increment `num_prefs_possible_ret`.
+        *   If exactly one is retrieved:
+            *   If $ptr1 < num\_judged\_ret$: increment `num_prefs_fulfilled_imp`.
+            *   Else: increment `num_prefs_possible_imp`.
+        *   If neither is retrieved: increment `num_prefs_possible_notoccur`.
+    *   For **Preference Matrix**:
+        For every pair of internal ranks $i$ and $j$ where `matrix[i][j]` is true ($i$ is preferred to $j$):
+        *   Increment `pref_counts[i][j] += 1`.
+        *   If both are retrieved ($i < num\_judged\_ret$ and $j < num\_judged\_ret$):
+            *   If $i < j$: increment `num_prefs_fulfilled_ret`.
+            *   Else: increment `num_prefs_possible_ret`.
+        *   If exactly one is retrieved:
+            *   If $i < num\_judged\_ret$: increment `num_prefs_fulfilled_imp`.
+            *   Else: increment `num_prefs_possible_imp`.
+        *   If neither is retrieved: increment `num_prefs_possible_notoccur`.
+    *   At the end of count accumulation, standard additions are performed:
+        *   `num_prefs_possible_ret += num_prefs_fulfilled_ret;`
+        *   `num_prefs_possible_imp += num_prefs_fulfilled_imp;`
 
 ---
 
@@ -177,6 +220,72 @@ pub enum EvaluationType {
 pub enum EvalState {
     Standard(QueryEvalState),
     Prefs(PrefsEvalState), // PrefsEvalState contains pairwise counts of preferred documents
+}
+
+/// Represents an Equivalence Class (EC) within a Judgment Group.
+#[derive(Debug, Clone)]
+pub struct EquivalenceClass {
+    /// Relevance level of this equivalence class.
+    pub rel_level: f64,
+    /// The assigned internal ranks (0..num_judged-1) of documents belonging to this EC.
+    pub ranks: Vec<usize>,
+}
+
+/// Represents a single Judgment Group (JG) for a query.
+#[derive(Debug, Clone)]
+pub struct JudgmentGroup {
+    /// Equivalence classes ordered by decreasing relevance level.
+    /// Used if there is only 1 judgment sub-group.
+    pub ecs: Vec<EquivalenceClass>,
+
+    /// A partial-order preference matrix where `matrix[i][j]` is true iff
+    /// internal rank `i` is preferred to internal rank `j` in this JG.
+    /// Used when multiple judgment sub-groups (JSGs) are present.
+    /// Dimension: num_judged * num_judged.
+    pub prefs_matrix: Option<Vec<Vec<bool>>>,
+
+    /// Relevance levels for each judged document by internal rank.
+    /// Dimension: num_judged.
+    pub rel_array: Vec<f64>,
+
+    // --- Aggregated Combinatorial Counts ---
+    /// Both A and B are retrieved, and preferred A is ranked higher than less-preferred B.
+    pub num_prefs_fulfilled_ret: usize,
+    /// Both A and B are retrieved, regardless of ranking.
+    pub num_prefs_possible_ret: usize,
+    /// Exactly one of A or B is retrieved, and the preferred A is retrieved (implied fulfilled).
+    pub num_prefs_fulfilled_imp: usize,
+    /// Exactly one of A or B is retrieved (implied possible).
+    pub num_prefs_possible_imp: usize,
+    /// Neither A nor B is retrieved (possible but did not occur).
+    pub num_prefs_possible_notoccur: usize,
+
+    /// Count of judged documents with `rel_level == 0.0`.
+    pub num_nonrel: usize,
+    /// Count of retrieved judged documents with `rel_level == 0.0`.
+    pub num_nonrel_ret: usize,
+    /// Count of judged documents with `rel_level > 0.0`.
+    pub num_rel: usize,
+    /// Count of retrieved judged documents with `rel_level > 0.0`.
+    pub num_rel_ret: usize,
+}
+
+/// Aligned evaluation state for preference-based metrics.
+#[derive(Debug, Clone)]
+pub struct PrefsEvalState {
+    /// List of judgment groups for this query.
+    pub jgs: Vec<JudgmentGroup>,
+
+    /// Total number of distinct documents mentioned in any preference for this query.
+    pub num_judged: usize,
+
+    /// Number of those judged documents that were actually retrieved.
+    pub num_judged_ret: usize,
+
+    /// Accumulator matrix of size `num_judged * num_judged` where `pref_counts[i][j]`
+    /// counts how many JGs prefer internal rank `i` to internal rank `j`.
+    /// Used directly for pairwise conflict and confirmation metrics.
+    pub pref_counts: Vec<Vec<usize>>,
 }
 ```
 
