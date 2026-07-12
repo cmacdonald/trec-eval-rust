@@ -11,11 +11,6 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Status**: Active
 *   **Description**: C's preference-based evaluation (`form_prefs_counts.c`, ~1,200 lines) implements transitive closures of partial preferences, equivalence class partitioning, and complex zone counting across five topological areas (A1–A5). `EVAL_DESIGN.md` completely glosses over this, declaring only an undefined `Prefs(PrefsEvalState)`. We need a robust mathematical design for porting this logic to Rust.
 
-### 16. The `bogus_ranking` Ingestion Hack
-*   **Type**: Design (Design Stage)
-*   **Status**: Active
-*   **Description**: For missing queries under `-c`, C `trec_eval` creates a `bogus_ranking` containing exactly one non-relevant document (`ceci_nest_pas_un_docno`) to avoid division by zero. C then runs a hardcoded post-evaluation override loop to reset corrupted counts (like `num_ret` and `utility`). `te-rust` needs to define how it handles missing queries natively without these hacks while preserving exact equivalence.
-
 ### 19. Fragile Testing Harness: `cargo run` and Exact String Comparisons
 *   **Type**: Testing (Design Stage)
 *   **Status**: Active
@@ -115,3 +110,8 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Type**: Design
 *   **Status**: Resolved (Defensive Vector Sizing & Safe Getters)
 *   **Description**: Resolved to implement a three-layer boundary protection design for relevance counts. First, to support modern research on pairwise tournament and dense-scale preference evaluations while preventing OOM denial-of-service vulnerabilities, the lexical parser strictly validates that parsed relevance levels fall within a safe, generous range of `-1,000,000` to `1,000,000` (max 8MB memory allocation). Second, the alignment engine defensively sizes the `rel_levels` flat vector to `max(max_rel + 1, config.relevance_level + 1)`. Third, all metrics are mandated to retrieve counts from `rel_levels` using infallible, bounds-checked getters (e.g. `.get(j).copied().unwrap_or(0)`), guaranteeing 100% crash-free execution.
+
+### 16. The `bogus_ranking` Ingestion Hack
+*   **Type**: Design
+*   **Status**: Resolved (Native Empty State Evaluation)
+*   **Description**: Resolved to natively evaluate missing queries under complete set evaluation (`-c`) using empty query execution states (`Vec::new()`), completely eliminating the internal `bogus_ranking` and the subsequent fragile, hardcoded post-evaluation override loops. Because our metric architecture requires measures to self-contain their boundary conditions defensively (as resolved in Issue 20), an empty state natively evaluates to correct baseline totals and averages across all standard, utility, and complex metrics. Hand-inserted dummy lines in run files are still parsed as normal, maintaining 100% parity with C `trec_eval` under all execution states.

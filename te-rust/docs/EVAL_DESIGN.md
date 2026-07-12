@@ -112,6 +112,20 @@ To construct `QueryEvalState` from a `RunQuery` and a `QrelsQuery`:
     *   **Defensive Allocation & Sizing**: The `rel_levels` vector is pre-allocated and initialized with `0`s to a size of `max(max_rel + 1, config.relevance_level + 1)` where `max_rel` is the maximum non-negative relevance score observed in the qrels for that topic.
     *   **Infallible Count Retrieval**: Measures must retrieve counts from `rel_levels` using bounds-checked indexing (such as `state.rel_levels.get(j).copied().unwrap_or(0)`) rather than direct indexing (`state.rel_levels[j]`). This ensures absolute panic-free execution even if a metric queries high relevance threshold levels that were never observed in the input file.
 
+### 3.2 Handling Missing Queries Natively (-c Complete Set Evaluation)
+To maintain 100% score parity with C `trec_eval` under complete set evaluation (`-c` or `average_complete_flag`) while eliminating C's fragile internal `bogus_ranking` ("ceci_nest_pas_un_docno") hack and hardcoded memory override loops:
+
+1.  **Strict Intersection vs. Complete Evaluation**:
+    *   By default, `te-rust` only evaluates queries present in both the relevance judgments and the run results ($Q_{\text{qrels}} \cap Q_{\text{run}}$). If a query exists in the judgments but is missing from the run, it is silently skipped.
+    *   If `config.average_complete_flag` is true, the execution harness evaluates **every** query present in the judgments ($Q_{\text{qrels}}$).
+2.  **Native Empty State Construction**:
+    *   For any query present in the judgments but completely absent from the run file, the alignment engine constructs a native empty `QueryEvalState`:
+        *   `results_rel_list` is initialized as a completely empty vector (`Vec::new()`), indicating natively that 0 documents were retrieved.
+        *   `rel_levels` is populated with the correct judgment counts from the `QrelsQuery` records, and `num_rel` is computed normally.
+3.  **Self-Contained Metric Execution**:
+    *   All metric implementations must handle empty `results_rel_list` inputs defensively.
+    *   Because metrics evaluate this empty state natively (e.g., precision/recall-based measures return `0.0`, count-based measures return `0.0`, and utility measures return their baseline cost constants directly), there is no need to insert fake document strings into memory or run post-evaluation override cleanups. This ensures modular, robust, and crash-safe evaluation.
+
 ---
 
 ## 4. The Extensible Metric Architecture (`Measure` Trait)
