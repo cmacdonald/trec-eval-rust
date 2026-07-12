@@ -51,11 +51,81 @@ We will write a robust, stateless runner in `tests/regression.rs`. We can implem
 use std::process::Command;
 use std::fs;
 use std::path::PathBuf;
+use std::collections::HashMap;
+
+/// Parses standard trec_eval relational triple format output ("measure qid value")
+/// into a structured map for robust, formatting-agnostic comparisons.
+fn parse_trec_output(content: &str) -> HashMap<(String, String), String> {
+    let mut map = HashMap::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+        if parts.len() == 3 {
+            let measure = parts[0].to_string();
+            let qid = parts[1].to_string();
+            let value = parts[2].to_string();
+            map.insert((measure, qid), value);
+        }
+    }
+    map
+}
+
+/// Compares actual and expected outputs key-by-key, utilizing a small epsilon
+/// tolerance for floating-point values to tolerate minor representation rounding.
+fn assert_trec_outputs_match(actual: &str, expected: &str, epsilon: f64) {
+    let actual_map = parse_trec_output(actual);
+    let expected_map = parse_trec_output(expected);
+
+    assert_eq!(
+        actual_map.len(),
+        expected_map.len(),
+        "Total number of evaluated triples mismatched. Actual: {}, Expected: {}",
+        actual_map.len(),
+        expected_map.len()
+    );
+
+    for (key, expected_val) in &expected_map {
+        let actual_val = actual_map.get(key).unwrap_or_else(|| {
+            panic!("Expected triple {:?} was not found in actual output", key);
+        });
+
+        // Attempt numerical comparison if both parse as floats
+        if let (Ok(act_f), Ok(exp_f)) = (actual_val.parse::<f64>(), expected_val.parse::<f64>()) {
+            if act_f.is_nan() || exp_f.is_nan() {
+                assert_eq!(actual_val, expected_val, "NaN value mismatch for {:?}", key);
+            } else {
+                let diff = (act_f - exp_f).abs();
+                assert!(
+                    diff <= epsilon,
+                    "Numerical mismatch for {:?}: actual={}, expected={} (diff {} > {})",
+                    key,
+                    act_f,
+                    exp_f,
+                    diff,
+                    epsilon
+                );
+            }
+        } else {
+            // Fallback to strict string matching for non-numeric fields (e.g. run_id, text tags)
+            assert_eq!(
+                actual_val,
+                expected_val,
+                "Strict string mismatch for {:?}: actual='{}', expected='{}'",
+                key,
+                actual_val,
+                expected_val
+            );
+        }
+    }
+}
 
 fn run_regression(args: &[&str], expected_output_file: &str) {
-    // 1. Locate test_data path and target binary path
-    let mut cmd = Command::new("cargo");
-    cmd.arg("run").arg("--bin").arg("te-rust").arg("--");
+    // 1. Locate pre-compiled binary via Cargo env macro (prevents deadlocks and cargo locks)
+    let bin_path = env!("CARGO_BIN_EXE_te-rust");
+    let mut cmd = Command::new(bin_path);
     
     // 2. Append execution args
     for arg in args {
@@ -74,14 +144,8 @@ fn run_regression(args: &[&str], expected_output_file: &str) {
     let expected_content = fs::read_to_string(expected_path)
         .expect("Failed to read expected output file");
         
-    // 5. Compare outputs line-by-line (ignoring trailing whitespace differences)
-    let actual_lines: Vec<&str> = actual_stdout.lines().map(|l| l.trim()).collect();
-    let expected_lines: Vec<&str> = expected_content.lines().map(|l| l.trim()).collect();
-    
-    assert_eq!(actual_lines.len(), expected_lines.len(), "Line count mismatch");
-    for (i, (actual, expected)) in actual_lines.iter().zip(expected_lines.iter()).enumerate() {
-        assert_eq!(actual, expected, "Mismatch at line {}: actual='{}', expected='{}'", i + 1, actual, expected);
-    }
+    // 5. Compare relational tables key-by-key with an epsilon tolerance of 1e-4
+    assert_trec_outputs_match(&actual_stdout, &expected_content, 1e-4);
 }
 ```
 

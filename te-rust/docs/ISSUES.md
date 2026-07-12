@@ -6,10 +6,7 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Active Issues
 
-### 19. Fragile Testing Harness: `cargo run` and Exact String Comparisons
-*   **Type**: Testing (Design Stage)
-*   **Status**: Active
-*   **Description**: `TEST_DESIGN.md` invokes `cargo run --bin te-rust` recursively, which blocks cargo locks and is extremely slow during parallel execution. It should use `env!("CARGO_BIN_EXE_te-rust")`. Furthermore, strict line-by-line string comparison will fail on minor floating-point rounding variations or spacing differences. We need a relational regression parser that compares structured triples with a numerical epsilon.
+*No active issues remaining.*
 
 ---
 
@@ -115,3 +112,8 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Type**: Design
 *   **Status**: Resolved (Full Preference Mapping & Dual-Strategy Testing)
 *   **Description**: Resolved to specify a comprehensive, type-safe Rust representation for the entire preference evaluation logic, completely defining the previously empty `PrefsEvalState`, `JudgmentGroup`, and `EquivalenceClass` structures in `EVAL_DESIGN.md`. Documented the alignment engine's exact internal doc ranking assignment (0..num_judged), Equivalence Class sorting, and partial-order preference matrix construction. To prevent regression bugs and guarantee 100% behavioral alignment with C's complex `form_prefs_counts.c`, we resolved to implement two independent transitive closure algorithms: a naive C-style iterative matrix exponentiation (the reference oracle) and a bit-parallel Warshall's algorithm (production optimizer). The evaluation engine will run both strategies in parallel during development and compare resulting matrices. This guarantees that we verify the production optimizer's safety under all imaginable dataset conditions before disabling the naive reference in production. Fully mapped the five combinatorial topological count areas (A1–A5) for both layouts.
+
+### 19. Fragile Testing Harness: `cargo run` and Exact String Comparisons
+*   **Type**: Testing
+*   **Status**: Resolved (CARGO_BIN_EXE and Relational Epsilon Parser)
+*   **Description**: Resolved to rebuild the integration testing suite around modern Rust testing best practices. First, replaced recursive `cargo run` spawning with standard pre-compiled binary execution using `env!("CARGO_BIN_EXE_te-rust")`, bypassing the cargo locks deadlock vector and enabling 100% parallel integration testing execution. Second, replaced fragile exact-line string matching with a structured relational regression parser that reads whitespace-separated `trec_eval` output triples (`measure qid value`). Triples are compared key-by-key: numeric values are evaluated within a defensive float tolerance epsilon (`1e-4` or `10^-4`), while text columns (e.g. `run_id`) fall back to formatting-agnostic string matching. This guarantees regression safety while rendering the tests robust to spacing and platform-specific floating-point representation details.
