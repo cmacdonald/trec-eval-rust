@@ -1,2 +1,21 @@
+# Original C trec_eval checkout (no changes should be made here)
 trec_eval/
-te-rust/target/
+
+# Rust build artifacts
+target/
+**/target/
+
+# Backups and swap files
+*.rs.bk
+*.swp
+*.swo
+*~
+
+# IDE configurations
+.idea/
+.vscode/
+*.iml
+
+# OS-specific files
+.DS_Store
+Thumbs.db
