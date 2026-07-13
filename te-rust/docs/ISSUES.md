@@ -6,7 +6,14 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Active Issues
 
-*No active issues remaining.*
+### 21. Simplified Help Output with Per-Measure Granularity
+*   **Type**: Design / Feature
+*   **Status**: Active
+*   **Description**: In standard `trec_eval`, running `-h` prints a massive wall of text containing detailed documentation of every single metric, which is overwhelming. For `te-rust`, we want to design a more granular, interactive help system:
+    1. A generic help switch (e.g. `te-rust --help-measures` or similar) should list only the names of the available measures.
+    2. A specific command or parameter (e.g. `te-rust --help <measure_name>`) should print the detailed documentation and explanation for only that requested measure.
+    3. The detailed documentation/explanation must be defined directly in the source code of the individual `Measure` implementation (such as via its `explanation()` trait method).
+
 
 ---
 
