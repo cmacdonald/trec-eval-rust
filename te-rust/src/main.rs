@@ -66,21 +66,21 @@ struct Args {
 
 fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
     let all_possible_measures: Vec<Box<dyn Measure>> = vec![
-        Box::new(metrics::core::RunIdMeasure::new()),
-        Box::new(metrics::core::NumRetMeasure::new()),
-        Box::new(metrics::core::NumRelMeasure::new()),
-        Box::new(metrics::core::NumRelRetMeasure::new()),
-        Box::new(metrics::core::MapMeasure::new()),
-        Box::new(metrics::core::RprecMeasure::new()),
-        Box::new(metrics::core::RecipRankMeasure::new()),
-        Box::new(metrics::cutoffs::PCutMeasure::new(vec![])),
-        Box::new(metrics::cutoffs::NdcgCutMeasure::new(vec![])),
-        Box::new(metrics::core::BprefMeasure::new()),
-        Box::new(metrics::cutoffs::RecallCutMeasure::new(vec![])),
-        Box::new(metrics::cutoffs::SuccessCutMeasure::new(vec![])),
-        Box::new(metrics::core::Avg11PtMeasure::new(vec![], "")),
-        Box::new(metrics::core::UtilityMeasure::new(vec![0.0, 0.0, 0.0, 0.0], "")),
-        Box::new(metrics::core::RelstringMeasure::new(0, "")),
+        Box::new(metrics::runid::RunIdMeasure::new()),
+        Box::new(metrics::num_ret::NumRetMeasure::new()),
+        Box::new(metrics::num_rel::NumRelMeasure::new()),
+        Box::new(metrics::num_rel_ret::NumRelRetMeasure::new()),
+        Box::new(metrics::map::MapMeasure::new()),
+        Box::new(metrics::rprec::RprecMeasure::new()),
+        Box::new(metrics::recip_rank::RecipRankMeasure::new()),
+        Box::new(metrics::p_cut::PCutMeasure::new(vec![])),
+        Box::new(metrics::ndcg_cut::NdcgCutMeasure::new(vec![])),
+        Box::new(metrics::bpref::BprefMeasure::new()),
+        Box::new(metrics::recall::RecallCutMeasure::new(vec![])),
+        Box::new(metrics::success::SuccessCutMeasure::new(vec![])),
+        Box::new(metrics::avg_11pt::Avg11PtMeasure::new(vec![], "")),
+        Box::new(metrics::utility::UtilityMeasure::new(vec![0.0, 0.0, 0.0, 0.0], "")),
+        Box::new(metrics::relstring::RelstringMeasure::new(0, "")),
     ];
 
     if help_measures {
@@ -206,14 +206,14 @@ fn main() {
         let params_str = if parts.len() > 1 { parts[1] } else { "" };
 
         match root {
-            "runid" => active_measures.push(Box::new(metrics::core::RunIdMeasure::new())),
-            "num_ret" => active_measures.push(Box::new(metrics::core::NumRetMeasure::new())),
-            "num_rel" => active_measures.push(Box::new(metrics::core::NumRelMeasure::new())),
-            "num_rel_ret" => active_measures.push(Box::new(metrics::core::NumRelRetMeasure::new())),
-            "map" => active_measures.push(Box::new(metrics::core::MapMeasure::new())),
-            "Rprec" => active_measures.push(Box::new(metrics::core::RprecMeasure::new())),
-            "recip_rank" => active_measures.push(Box::new(metrics::core::RecipRankMeasure::new())),
-            "bpref" => active_measures.push(Box::new(metrics::core::BprefMeasure::new())),
+            "runid" => active_measures.push(Box::new(metrics::runid::RunIdMeasure::new())),
+            "num_ret" => active_measures.push(Box::new(metrics::num_ret::NumRetMeasure::new())),
+            "num_rel" => active_measures.push(Box::new(metrics::num_rel::NumRelMeasure::new())),
+            "num_rel_ret" => active_measures.push(Box::new(metrics::num_rel_ret::NumRelRetMeasure::new())),
+            "map" => active_measures.push(Box::new(metrics::map::MapMeasure::new())),
+            "Rprec" => active_measures.push(Box::new(metrics::rprec::RprecMeasure::new())),
+            "recip_rank" => active_measures.push(Box::new(metrics::recip_rank::RecipRankMeasure::new())),
+            "bpref" => active_measures.push(Box::new(metrics::bpref::BprefMeasure::new())),
             "P" => {
                 let cutoffs = if params_str.is_empty() {
                     vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
@@ -230,7 +230,7 @@ fn main() {
                     }
                     list
                 };
-                active_measures.push(Box::new(metrics::cutoffs::PCutMeasure::new(cutoffs)));
+                active_measures.push(Box::new(metrics::p_cut::PCutMeasure::new(cutoffs)));
             }
             "ndcg_cut" => {
                 let cutoffs = if params_str.is_empty() {
@@ -248,7 +248,7 @@ fn main() {
                     }
                     list
                 };
-                active_measures.push(Box::new(metrics::cutoffs::NdcgCutMeasure::new(cutoffs)));
+                active_measures.push(Box::new(metrics::ndcg_cut::NdcgCutMeasure::new(cutoffs)));
             }
             "recall" => {
                 let cutoffs = if params_str.is_empty() {
@@ -266,7 +266,7 @@ fn main() {
                     }
                     list
                 };
-                active_measures.push(Box::new(metrics::cutoffs::RecallCutMeasure::new(cutoffs)));
+                active_measures.push(Box::new(metrics::recall::RecallCutMeasure::new(cutoffs)));
             }
             "success" => {
                 let cutoffs = if params_str.is_empty() {
@@ -284,7 +284,7 @@ fn main() {
                     }
                     list
                 };
-                active_measures.push(Box::new(metrics::cutoffs::SuccessCutMeasure::new(cutoffs)));
+                active_measures.push(Box::new(metrics::success::SuccessCutMeasure::new(cutoffs)));
             }
             "11pt_avg" => {
                 let cutoffs = if params_str.is_empty() {
@@ -302,7 +302,7 @@ fn main() {
                     }
                     list
                 };
-                active_measures.push(Box::new(metrics::core::Avg11PtMeasure::new(cutoffs, params_str)));
+                active_measures.push(Box::new(metrics::avg_11pt::Avg11PtMeasure::new(cutoffs, params_str)));
             }
             "utility" => {
                 let coeffs = if params_str.is_empty() {
@@ -324,7 +324,7 @@ fn main() {
                     }
                     list
                 };
-                active_measures.push(Box::new(metrics::core::UtilityMeasure::new(coeffs, params_str)));
+                active_measures.push(Box::new(metrics::utility::UtilityMeasure::new(coeffs, params_str)));
             }
             "relstring" => {
                 let len = if params_str.is_empty() {
@@ -338,7 +338,7 @@ fn main() {
                         }
                     }
                 };
-                active_measures.push(Box::new(metrics::core::RelstringMeasure::new(len, params_str)));
+                active_measures.push(Box::new(metrics::relstring::RelstringMeasure::new(len, params_str)));
             }
             other => {
                 eprintln!("te-rust: Unknown measure '{}'", other);

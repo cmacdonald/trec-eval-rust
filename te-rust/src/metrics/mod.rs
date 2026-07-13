@@ -1,5 +1,19 @@
-pub mod core;
-pub mod cutoffs;
+pub mod common;
+pub mod runid;
+pub mod num_ret;
+pub mod num_rel;
+pub mod num_rel_ret;
+pub mod map;
+pub mod rprec;
+pub mod recip_rank;
+pub mod bpref;
+pub mod p_cut;
+pub mod ndcg_cut;
+pub mod recall;
+pub mod success;
+pub mod avg_11pt;
+pub mod utility;
+pub mod relstring;
 
 use crate::eval::QueryEvalState;
 
@@ -119,15 +133,15 @@ pub trait Measure: Send + Sync {
 /// Instantiates and returns the exact standard set of 'all_trec' measures.
 pub fn get_measures_for_all_trec() -> Vec<Box<dyn Measure>> {
     vec![
-        Box::new(core::RunIdMeasure::new()),
-        Box::new(core::NumRetMeasure::new()),
-        Box::new(core::NumRelMeasure::new()),
-        Box::new(core::NumRelRetMeasure::new()),
-        Box::new(core::MapMeasure::new()),
-        Box::new(core::RprecMeasure::new()),
-        Box::new(core::RecipRankMeasure::new()),
-        Box::new(cutoffs::PCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
-        Box::new(cutoffs::NdcgCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
-        Box::new(core::BprefMeasure::new()),
+        Box::new(runid::RunIdMeasure::new()),
+        Box::new(num_ret::NumRetMeasure::new()),
+        Box::new(num_rel::NumRelMeasure::new()),
+        Box::new(num_rel_ret::NumRelRetMeasure::new()),
+        Box::new(map::MapMeasure::new()),
+        Box::new(rprec::RprecMeasure::new()),
+        Box::new(recip_rank::RecipRankMeasure::new()),
+        Box::new(p_cut::PCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
+        Box::new(ndcg_cut::NdcgCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
+        Box::new(bpref::BprefMeasure::new()),
     ]
 }
