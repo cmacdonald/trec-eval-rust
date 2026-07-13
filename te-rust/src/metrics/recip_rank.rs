@@ -52,3 +52,47 @@ impl Measure for RecipRankMeasure {
         }
     }
 }
+
+impl Default for RecipRankMeasure {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_recip_rank_standard() {
+        let measure = RecipRankMeasure::new();
+        let config = EvalConfig::default();
+        // first relevant at rank 3 (index 2). score = 1 / 3 = 0.3333
+        let state = make_mock_state(vec![0, 0, 1], 1);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        if let MetricValue::Float(v) = actual[0] {
+            assert!((v - 0.3333333333333333).abs() < 1e-9);
+        } else {
+            panic!("Expected float value");
+        }
+    }
+
+    #[test]
+    fn test_recip_rank_empty_ranking() {
+        let measure = RecipRankMeasure::new();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
+    }
+
+    #[test]
+    fn test_recip_rank_no_relevant_retrieved() {
+        let measure = RecipRankMeasure::new();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![0, 0, 0], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
+    }
+}

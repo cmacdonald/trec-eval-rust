@@ -77,3 +77,34 @@ impl Measure for RelstringMeasure {
         }
     }
 }
+
+impl Default for RelstringMeasure {
+    fn default() -> Self {
+        Self::new(30, "")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_relstring_standard() {
+        let measure = RelstringMeasure::default();
+        let config = EvalConfig::default();
+        // retrieved: [1, 0, -1] (rel, nonrel, unjudged), len = 30
+        let state = make_mock_state(vec![1, 0, -1], 1);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Str("'10-'".to_string())]);
+    }
+
+    #[test]
+    fn test_relstring_empty_ranking() {
+        let measure = RelstringMeasure::default();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Str("''".to_string())]);
+    }
+}

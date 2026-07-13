@@ -62,3 +62,44 @@ impl Measure for RecallCutMeasure {
         }
     }
 }
+
+impl Default for RecallCutMeasure {
+    fn default() -> Self {
+        Self::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_recall_standard() {
+        let measure = RecallCutMeasure::new(vec![1, 3]);
+        let config = EvalConfig::default();
+        // retrieved: [1, 0, 1], num_rel = 4.
+        // Recall@1 = 1 / 4 = 0.25. Recall@3 = 2 / 4 = 0.5.
+        let state = make_mock_state(vec![1, 0, 1], 4);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.25), MetricValue::Float(0.5)]);
+    }
+
+    #[test]
+    fn test_recall_empty_ranking() {
+        let measure = RecallCutMeasure::new(vec![1, 5]);
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
+    }
+
+    #[test]
+    fn test_recall_zero_relevance() {
+        let measure = RecallCutMeasure::new(vec![1, 5]);
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![1, 0, 1], 0);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
+    }
+}

@@ -57,3 +57,44 @@ impl Measure for SuccessCutMeasure {
         }
     }
 }
+
+impl Default for SuccessCutMeasure {
+    fn default() -> Self {
+        Self::new(vec![1, 5, 10])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_success_standard() {
+        let measure = SuccessCutMeasure::new(vec![1, 3]);
+        let config = EvalConfig::default();
+        // retrieved: [0, 0, 1] (relevant at rank 3). num_rel = 1.
+        // Success@1 = 0.0. Success@3 = 1.0.
+        let state = make_mock_state(vec![0, 0, 1], 1);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(1.0)]);
+    }
+
+    #[test]
+    fn test_success_empty_ranking() {
+        let measure = SuccessCutMeasure::new(vec![1, 5]);
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
+    }
+
+    #[test]
+    fn test_success_no_relevant_retrieved() {
+        let measure = SuccessCutMeasure::new(vec![1, 5]);
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![0, 0, 0], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
+    }
+}

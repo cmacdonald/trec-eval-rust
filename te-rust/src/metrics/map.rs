@@ -61,3 +61,62 @@ impl Measure for MapMeasure {
         }
     }
 }
+
+impl Default for MapMeasure {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_map_standard() {
+        let measure = MapMeasure::new();
+        let config = EvalConfig::default();
+        // Rank 1: rel (P@1=1.0), Rank 2: nonrel (P@2=0.5), Rank 3: rel (P@3=2/3=0.6667). num_rel=2.
+        // sum = 1.0 + 2/3 = 1.6667. ap = 1.6667 / 2 = 0.8333
+        let state = make_mock_state(vec![1, 0, 1], 2);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        if let MetricValue::Float(v) = actual[0] {
+            assert!((v - 0.8333333333333333).abs() < 1e-9);
+        } else {
+            panic!("Expected float value");
+        }
+    }
+
+    #[test]
+    fn test_map_empty_ranking() {
+        let measure = MapMeasure::new();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
+    }
+
+    #[test]
+    fn test_map_zero_relevance() {
+        let measure = MapMeasure::new();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![1, 0, 1], 0);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
+    }
+
+    #[test]
+    fn test_map_all_relevant_at_end() {
+        let measure = MapMeasure::new();
+        let config = EvalConfig::default();
+        // Rank 3 is relevant (P@3 = 1/3 = 0.3333). num_rel = 1.
+        let state = make_mock_state(vec![0, 0, 1], 1);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        if let MetricValue::Float(v) = actual[0] {
+            assert!((v - 0.3333333333333333).abs() < 1e-9);
+        } else {
+            panic!("Expected float value");
+        }
+    }
+}

@@ -57,3 +57,50 @@ impl Measure for PrecisionCutMeasure {
         }
     }
 }
+
+impl Default for PrecisionCutMeasure {
+    fn default() -> Self {
+        Self::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_precision_standard() {
+        let measure = PrecisionCutMeasure::new(vec![1, 3]);
+        let config = EvalConfig::default();
+        // retrieved: [1, 0, 1], num_rel = 2.
+        // P@1 = 1 / 1 = 1.0. P@3 = 2 / 3 = 0.6667.
+        let state = make_mock_state(vec![1, 0, 1], 2);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual.len(), 2);
+        assert_eq!(actual[0], MetricValue::Float(1.0));
+        if let MetricValue::Float(v) = actual[1] {
+            assert!((v - 0.6666666666666666).abs() < 1e-9);
+        } else {
+            panic!("Expected float value");
+        }
+    }
+
+    #[test]
+    fn test_precision_empty_ranking() {
+        let measure = PrecisionCutMeasure::new(vec![1, 5]);
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
+    }
+
+    #[test]
+    fn test_precision_no_relevant_retrieved() {
+        let measure = PrecisionCutMeasure::new(vec![1, 5]);
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![0, 0, 0], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
+    }
+}

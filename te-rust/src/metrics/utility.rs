@@ -75,3 +75,47 @@ impl Measure for UtilityMeasure {
         }
     }
 }
+
+impl Default for UtilityMeasure {
+    fn default() -> Self {
+        Self::new(vec![1.0, -1.0, 0.0, 0.0], "")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_utility_standard() {
+        let measure = UtilityMeasure::default();
+        let config = EvalConfig::default();
+        // retrieved: [1, 0, 1] (2 relevant, 1 non-relevant), num_rel = 2.
+        // default params: [1.0, -1.0, 0.0, 0.0]
+        // score = 1.0 * 2 + (-1.0) * 1 = 1.0
+        let state = make_mock_state(vec![1, 0, 1], 2);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(1.0)]);
+    }
+
+    #[test]
+    fn test_utility_empty_ranking() {
+        let measure = UtilityMeasure::default();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
+    }
+
+    #[test]
+    fn test_utility_zero_relevance() {
+        let measure = UtilityMeasure::default();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![0, 0], 0);
+        // a = 0, b = 2, c = 0, d = num_docs_in_coll + 0 - 2 - 0 = num_docs_in_coll - 2.
+        // score = 1.0 * 0 + (-1.0) * 2 = -2.0
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(-2.0)]);
+    }
+}

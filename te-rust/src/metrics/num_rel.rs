@@ -47,3 +47,33 @@ impl Measure for NumRelMeasure {
         // No-op for counts
     }
 }
+
+impl Default for NumRelMeasure {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_num_rel_standard() {
+        let measure = NumRelMeasure::new();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![1, 0, 1], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Integer(5)]);
+    }
+
+    #[test]
+    fn test_num_rel_zero() {
+        let measure = NumRelMeasure::new();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![1, 1], 0);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Integer(0)]);
+    }
+}

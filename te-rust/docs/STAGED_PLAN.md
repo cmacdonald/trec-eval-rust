@@ -83,6 +83,12 @@ Stage 2 extends the core pipeline to support dynamic user assistance, standard s
 ### 2.4 Verification and Regression Suite Expansion [Completed]
 *   Extend regression tests in `tests/regression.rs` to run and verify dynamic parametric quicktests (`test_meas_params`, `test_relstring_relevance_level`).
 
+### 2.5 Measure-Specific Edge Case Unit Tests [Completed]
+*   **Locality of Tests**: Implement `#[cfg(test)] mod tests` submodules inside each individual metric file to keep tests close to their measure's mathematical code.
+*   **Shared Test Generator**: Implement a unified, mock-aligned `QueryEvalState` builder in `src/metrics/common.rs` under `#[cfg(test)]` to prevent repetitive setup code across the 15+ metrics.
+*   **Edge Case Coverage**: Verify standard metrics across standard edge cases (empty rankings, zero retrieved documents, no relevant documents retrieved, single relevant retrieved, and numerical rounding bounds) using discrete, descriptively named unit test functions.
+
+
 
 ---
 

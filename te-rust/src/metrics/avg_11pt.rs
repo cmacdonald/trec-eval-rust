@@ -108,3 +108,47 @@ impl Measure for Avg11PtMeasure {
         }
     }
 }
+
+impl Default for Avg11PtMeasure {
+    fn default() -> Self {
+        Self::new(vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], "")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_avg_11pt_standard() {
+        let measure = Avg11PtMeasure::default();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![1, 0, 1], 2);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual.len(), 1);
+        if let MetricValue::Float(v) = actual[0] {
+            assert!(v >= 0.0 && v <= 1.0);
+        } else {
+            panic!("Expected float value");
+        }
+    }
+
+    #[test]
+    fn test_avg_11pt_empty_ranking() {
+        let measure = Avg11PtMeasure::default();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
+    }
+
+    #[test]
+    fn test_avg_11pt_zero_relevance() {
+        let measure = Avg11PtMeasure::default();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![1, 0, 1], 0);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
+    }
+}

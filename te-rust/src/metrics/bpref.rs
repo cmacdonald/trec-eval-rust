@@ -83,3 +83,45 @@ impl Measure for BprefMeasure {
         }
     }
 }
+
+impl Default for BprefMeasure {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_bpref_standard() {
+        let measure = BprefMeasure::new();
+        let config = EvalConfig::default();
+        // retrieved: [1, 0, 1]. R=2. Non-relevant so far for rank 1: 0. bpref += 1.0.
+        // Non-relevant so far for rank 3: 1 (at rank 2). min(1, 2)/min(100, 2) = 1/2 = 0.5. bpref += 1.0 - 0.5 = 0.5.
+        // total bpref sum = 1.5. final score = 1.5 / 2 = 0.75.
+        let state = make_mock_state(vec![1, 0, 1], 2);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.75)]);
+    }
+
+    #[test]
+    fn test_bpref_empty_ranking() {
+        let measure = BprefMeasure::new();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
+    }
+
+    #[test]
+    fn test_bpref_zero_relevance() {
+        let measure = BprefMeasure::new();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![1, 0, 1], 0);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
+    }
+}

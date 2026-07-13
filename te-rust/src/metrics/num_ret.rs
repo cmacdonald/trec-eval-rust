@@ -47,3 +47,33 @@ impl Measure for NumRetMeasure {
         // No-op for counts
     }
 }
+
+impl Default for NumRetMeasure {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::common::make_mock_state;
+
+    #[test]
+    fn test_num_ret_standard() {
+        let measure = NumRetMeasure::new();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![1, 0, 1], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Integer(3)]);
+    }
+
+    #[test]
+    fn test_num_ret_empty_ranking() {
+        let measure = NumRetMeasure::new();
+        let config = EvalConfig::default();
+        let state = make_mock_state(vec![], 5);
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual, vec![MetricValue::Integer(0)]);
+    }
+}
