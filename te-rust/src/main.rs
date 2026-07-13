@@ -187,6 +187,7 @@ fn main() {
                 final_names.push("bpref".to_string());
                 final_names.push("P".to_string());
                 final_names.push("ndcg_cut".to_string());
+                final_names.push("ndcg".to_string());
                 final_names.push("recall".to_string());
                 final_names.push("success".to_string());
                 final_names.push("11pt_avg".to_string());
@@ -249,6 +250,9 @@ fn main() {
                     list
                 };
                 active_measures.push(Box::new(metrics::ndcg_cut::NdcgCutMeasure::new(cutoffs)));
+            }
+            "ndcg" => {
+                active_measures.push(Box::new(metrics::ndcg::NdcgMeasure::new()));
             }
             "recall" => {
                 let cutoffs = if params_str.is_empty() {

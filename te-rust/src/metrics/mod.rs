@@ -9,6 +9,7 @@ pub mod recip_rank;
 pub mod bpref;
 pub mod precision;
 pub mod ndcg_cut;
+pub mod ndcg;
 pub mod recall;
 pub mod success;
 pub mod avg_11pt;
@@ -142,6 +143,7 @@ pub fn get_measures_for_all_trec() -> Vec<Box<dyn Measure>> {
         Box::new(recip_rank::RecipRankMeasure::new()),
         Box::new(precision::PrecisionCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
         Box::new(ndcg_cut::NdcgCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
+        Box::new(ndcg::NdcgMeasure::new()),
         Box::new(bpref::BprefMeasure::new()),
     ]
 }

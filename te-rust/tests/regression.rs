@@ -224,8 +224,8 @@ fn test_regression_help_flags() {
 #[test]
 fn test_regression_specialized_standard_metrics() {
     compare_outputs(
-        &["-m", "recall.5,10", "-m", "success.1,5", "-m", "11pt_avg", "-m", "utility"],
-        &["-m", "recall.5,10", "-m", "success.1,5", "-m", "11pt_avg", "-m", "utility"],
+        &["-m", "recall.5,10", "-m", "success.1,5", "-m", "11pt_avg", "-m", "utility", "-m", "ndcg"],
+        &["-m", "recall.5,10", "-m", "success.1,5", "-m", "11pt_avg", "-m", "utility", "-m", "ndcg"],
         "qrels.test",
         "results.test",
     );
