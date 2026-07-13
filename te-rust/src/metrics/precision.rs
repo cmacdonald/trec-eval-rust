@@ -1,18 +1,18 @@
 use crate::metrics::{EvalConfig, EvalState, EvaluationType, Measure, MetricValue, ValueFormat};
 
-pub struct PCutMeasure {
+pub struct PrecisionCutMeasure {
     cutoffs: Vec<usize>,
     sub_metrics: Vec<String>,
 }
 
-impl PCutMeasure {
+impl PrecisionCutMeasure {
     pub fn new(cutoffs: Vec<usize>) -> Self {
         let sub_metrics = cutoffs.iter().map(|c| format!("P_{}", c)).collect();
         Self { cutoffs, sub_metrics }
     }
 }
 
-impl Measure for PCutMeasure {
+impl Measure for PrecisionCutMeasure {
     fn name(&self) -> &'static str {
         "P"
     }

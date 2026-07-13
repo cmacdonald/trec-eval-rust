@@ -73,7 +73,7 @@ fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
         Box::new(metrics::map::MapMeasure::new()),
         Box::new(metrics::rprec::RprecMeasure::new()),
         Box::new(metrics::recip_rank::RecipRankMeasure::new()),
-        Box::new(metrics::p_cut::PCutMeasure::new(vec![])),
+        Box::new(metrics::precision::PrecisionCutMeasure::new(vec![])),
         Box::new(metrics::ndcg_cut::NdcgCutMeasure::new(vec![])),
         Box::new(metrics::bpref::BprefMeasure::new()),
         Box::new(metrics::recall::RecallCutMeasure::new(vec![])),
@@ -230,7 +230,7 @@ fn main() {
                     }
                     list
                 };
-                active_measures.push(Box::new(metrics::p_cut::PCutMeasure::new(cutoffs)));
+                active_measures.push(Box::new(metrics::precision::PrecisionCutMeasure::new(cutoffs)));
             }
             "ndcg_cut" => {
                 let cutoffs = if params_str.is_empty() {

@@ -7,7 +7,7 @@ pub mod map;
 pub mod rprec;
 pub mod recip_rank;
 pub mod bpref;
-pub mod p_cut;
+pub mod precision;
 pub mod ndcg_cut;
 pub mod recall;
 pub mod success;
@@ -140,7 +140,7 @@ pub fn get_measures_for_all_trec() -> Vec<Box<dyn Measure>> {
         Box::new(map::MapMeasure::new()),
         Box::new(rprec::RprecMeasure::new()),
         Box::new(recip_rank::RecipRankMeasure::new()),
-        Box::new(p_cut::PCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
+        Box::new(precision::PrecisionCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
         Box::new(ndcg_cut::NdcgCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
         Box::new(bpref::BprefMeasure::new()),
     ]
