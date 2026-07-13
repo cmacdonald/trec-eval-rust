@@ -14,8 +14,12 @@ impl Measure for RunIdMeasure {
         "runid"
     }
 
-    fn explanation(&self) -> &'static str {
+    fn short_description(&self) -> &'static str {
         "Run identifier"
+    }
+
+    fn explanation(&self) -> &'static str {
+        "Run identifier. This represents the unique string identifier or tag assigned to the retrieval system run under evaluation."
     }
 
     fn format(&self) -> ValueFormat {
@@ -67,8 +71,12 @@ impl Measure for NumRetMeasure {
         "num_ret"
     }
 
+    fn short_description(&self) -> &'static str {
+        "Total retrieved"
+    }
+
     fn explanation(&self) -> &'static str {
-        "Total number of retrieved documents"
+        "Total number of retrieved documents. This metric counts the absolute number of documents retrieved by the system across all queried topics."
     }
 
     fn format(&self) -> ValueFormat {
@@ -112,8 +120,12 @@ impl Measure for NumRelMeasure {
         "num_rel"
     }
 
+    fn short_description(&self) -> &'static str {
+        "Total relevant"
+    }
+
     fn explanation(&self) -> &'static str {
-        "Total number of relevant documents"
+        "Total number of relevant documents. This is the count of documents that are judged relevant in the ground-truth relevance judgments (qrels) for the given topic."
     }
 
     fn format(&self) -> ValueFormat {
@@ -157,8 +169,12 @@ impl Measure for NumRelRetMeasure {
         "num_rel_ret"
     }
 
+    fn short_description(&self) -> &'static str {
+        "Total relevant retrieved"
+    }
+
     fn explanation(&self) -> &'static str {
-        "Total number of relevant documents retrieved"
+        "Total number of relevant documents retrieved. This count measures the overlap between the documents retrieved by the system and the relevant documents judged in the qrels."
     }
 
     fn format(&self) -> ValueFormat {
@@ -202,8 +218,12 @@ impl Measure for MapMeasure {
         "map"
     }
 
-    fn explanation(&self) -> &'static str {
+    fn short_description(&self) -> &'static str {
         "Mean Average Precision"
+    }
+
+    fn explanation(&self) -> &'static str {
+        "Mean Average Precision. Calculates the average of precision scores evaluated at each rank where a relevant document is retrieved. For documents not retrieved, precision is defined as 0. Over queried topics, MAP represents the mean of average precisions."
     }
 
     fn format(&self) -> ValueFormat {
@@ -261,8 +281,12 @@ impl Measure for RprecMeasure {
         "Rprec"
     }
 
+    fn short_description(&self) -> &'static str {
+        "R-Precision"
+    }
+
     fn explanation(&self) -> &'static str {
-        "R-Precision (Precision at rank R, where R is the total number of relevant documents)"
+        "R-Precision. The precision evaluated exactly at rank R, where R is the total number of known relevant documents for the query. This measure assesses system precision at a depth matching the size of the relevance pool."
     }
 
     fn format(&self) -> ValueFormat {
@@ -320,8 +344,12 @@ impl Measure for RecipRankMeasure {
         "recip_rank"
     }
 
+    fn short_description(&self) -> &'static str {
+        "Reciprocal Rank"
+    }
+
     fn explanation(&self) -> &'static str {
-        "Reciprocal Rank of the first relevant document retrieved"
+        "Reciprocal Rank. Defined as 1/K, where K is the rank of the first relevant document retrieved by the system. If no relevant documents are retrieved, the score is 0.0."
     }
 
     fn format(&self) -> ValueFormat {
@@ -370,8 +398,12 @@ impl Measure for BprefMeasure {
         "bpref"
     }
 
+    fn short_description(&self) -> &'static str {
+        "Binary Preference"
+    }
+
     fn explanation(&self) -> &'static str {
-        "Binary Preference measure"
+        "Binary Preference. This measure computes the preference of relevant documents over non-relevant documents. It is based on the relative ranks of judged documents, calculating how often a relevant document is retrieved before a non-relevant document."
     }
 
     fn format(&self) -> ValueFormat {

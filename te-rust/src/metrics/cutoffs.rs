@@ -18,8 +18,12 @@ impl Measure for PCutMeasure {
         "P"
     }
 
-    fn explanation(&self) -> &'static str {
+    fn short_description(&self) -> &'static str {
         "Precision at cutoffs"
+    }
+
+    fn explanation(&self) -> &'static str {
+        "Precision at cutoff ranks. Calculates the proportion of retrieved documents that are relevant, evaluated at specific rank thresholds (e.g. top 5, 10, 15... retrieved documents). It measures retrieval accuracy at specified system output depths."
     }
 
     fn format(&self) -> ValueFormat {
@@ -81,8 +85,12 @@ impl Measure for NdcgCutMeasure {
         "ndcg_cut"
     }
 
-    fn explanation(&self) -> &'static str {
+    fn short_description(&self) -> &'static str {
         "Normalized Discounted Cumulative Gain at cutoffs"
+    }
+
+    fn explanation(&self) -> &'static str {
+        "Normalized Discounted Cumulative Gain at cutoff ranks. Compares the discounted cumulative gain of the retrieved ranking against that of the ideal ranking of known relevant documents, evaluated at specified rank thresholds. NDCG accounts for graded relevance judgments and discounts items at lower ranks. See Cumulated gain-based evaluation of IR techniques by Jarvelin and Kekalainen (2002, ACM TOIS, doi:10.1145/582415.582418) for the formal definition."
     }
 
     fn format(&self) -> ValueFormat {

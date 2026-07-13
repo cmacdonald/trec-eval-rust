@@ -62,6 +62,9 @@ pub trait Measure: Send + Sync {
     /// Unique root name of the measure (e.g. "map", "P").
     fn name(&self) -> &'static str;
 
+    /// Short single-sentence summary of the measure (e.g. "Mean Average Precision").
+    fn short_description(&self) -> &'static str;
+
     /// Detailed description/explanation of the measure.
     fn explanation(&self) -> &'static str;
 
