@@ -6,12 +6,20 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Active Issues
 
-*(There are currently no active issues. All active design questions and tasks are fully resolved for the current stages!)*
+### 22. Confidence intervals
+**Type**: feature
+**Status**: new
+**Description**: Add confidence intervals to the averages output. These intervals can be computed using simple bootstrap confidence intervals. The output will gain one or two new fields to display it. This should be enabled with a switch, for compatibility with trec_eval.
 
 
 ---
 
 ## Resolved Issues
+
+### 23. Standard Uncut NDCG and Cutoff Behavior Alignment
+*   **Type**: Bug
+*   **Status**: Resolved
+*   **Description**: Audited and confirmed all 15 core measures' cutoff behavior. Discovered that the standard uncut `ndcg` measure (which evaluates dynamically to the end of both the retrieved ranking and the ideal relevance ranking) was missing from the registry. Implemented `ndcg` in `te-rust/src/metrics/ndcg.rs`, registered it in `metrics/mod.rs` and `main.rs`, and updated the regression tests to verify that both C and Rust align exactly on all evaluation runs.
 
 ### 21. Simplified Help Output with Per-Measure Granularity
 *   **Type**: Design / Feature
