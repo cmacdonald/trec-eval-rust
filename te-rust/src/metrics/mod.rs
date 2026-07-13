@@ -17,6 +17,7 @@ pub mod utility;
 pub mod relstring;
 pub mod set_relative_p;
 pub mod set_map;
+pub mod set_f;
 
 use crate::eval::QueryEvalState;
 
@@ -149,5 +150,6 @@ pub fn get_measures_for_all_trec() -> Vec<Box<dyn Measure>> {
         Box::new(bpref::BprefMeasure::new()),
         Box::new(set_relative_p::SetRelativePMeasure::new()),
         Box::new(set_map::SetMapMeasure::new()),
+        Box::new(set_f::SetFMeasure::new(1.0, "")),
     ]
 }

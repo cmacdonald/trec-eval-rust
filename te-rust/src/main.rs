@@ -177,6 +177,7 @@ fn main() {
                 final_names.push("num_rel_ret".to_string());
                 final_names.push("set_relative_P".to_string());
                 final_names.push("set_map".to_string());
+                final_names.push("set_F".to_string());
             }
             "all_trec" => {
                 final_names.push("runid".to_string());
@@ -197,6 +198,7 @@ fn main() {
                 final_names.push("relstring".to_string());
                 final_names.push("set_relative_P".to_string());
                 final_names.push("set_map".to_string());
+                final_names.push("set_F".to_string());
             }
             other => {
                 final_names.push(other.to_string());
@@ -217,6 +219,20 @@ fn main() {
             "num_rel_ret" => active_measures.push(Box::new(metrics::num_rel_ret::NumRelRetMeasure::new())),
             "set_relative_P" => active_measures.push(Box::new(metrics::set_relative_p::SetRelativePMeasure::new())),
             "set_map" => active_measures.push(Box::new(metrics::set_map::SetMapMeasure::new())),
+            "set_F" => {
+                let beta = if params_str.is_empty() {
+                    1.0
+                } else {
+                    match params_str.parse::<f64>() {
+                        Ok(v) => v,
+                        Err(_) => {
+                            eprintln!("te-rust: Invalid float parameter '{}' in measure '{}'", params_str, name);
+                            process::exit(1);
+                        }
+                    }
+                };
+                active_measures.push(Box::new(metrics::set_f::SetFMeasure::new(beta, params_str)));
+            }
             "map" => active_measures.push(Box::new(metrics::map::MapMeasure::new())),
             "Rprec" => active_measures.push(Box::new(metrics::rprec::RprecMeasure::new())),
             "recip_rank" => active_measures.push(Box::new(metrics::recip_rank::RecipRankMeasure::new())),
