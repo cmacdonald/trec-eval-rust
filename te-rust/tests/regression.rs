@@ -221,3 +221,23 @@ fn test_regression_help_flags() {
     assert!(stdout_map.contains("Calculates the average of precision scores"));
 }
 
+#[test]
+fn test_regression_specialized_standard_metrics() {
+    compare_outputs(
+        &["-m", "recall.5,10", "-m", "success.1,5", "-m", "11pt_avg", "-m", "utility"],
+        &["-m", "recall.5,10", "-m", "success.1,5", "-m", "11pt_avg", "-m", "utility"],
+        "qrels.test",
+        "results.test",
+    );
+}
+
+#[test]
+fn test_regression_relstring_query_level() {
+    compare_outputs(
+        &["-q", "-m", "relstring.10"],
+        &["-q", "-m", "relstring.10"],
+        "qrels.test",
+        "results.test",
+    );
+}
+

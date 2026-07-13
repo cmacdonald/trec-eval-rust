@@ -76,6 +76,11 @@ fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
         Box::new(metrics::cutoffs::PCutMeasure::new(vec![])),
         Box::new(metrics::cutoffs::NdcgCutMeasure::new(vec![])),
         Box::new(metrics::core::BprefMeasure::new()),
+        Box::new(metrics::cutoffs::RecallCutMeasure::new(vec![])),
+        Box::new(metrics::cutoffs::SuccessCutMeasure::new(vec![])),
+        Box::new(metrics::core::Avg11PtMeasure::new(vec![], "")),
+        Box::new(metrics::core::UtilityMeasure::new(vec![0.0, 0.0, 0.0, 0.0], "")),
+        Box::new(metrics::core::RelstringMeasure::new(0, "")),
     ];
 
     if help_measures {
@@ -182,6 +187,11 @@ fn main() {
                 final_names.push("bpref".to_string());
                 final_names.push("P".to_string());
                 final_names.push("ndcg_cut".to_string());
+                final_names.push("recall".to_string());
+                final_names.push("success".to_string());
+                final_names.push("11pt_avg".to_string());
+                final_names.push("utility".to_string());
+                final_names.push("relstring".to_string());
             }
             other => {
                 final_names.push(other.to_string());
@@ -239,6 +249,96 @@ fn main() {
                     list
                 };
                 active_measures.push(Box::new(metrics::cutoffs::NdcgCutMeasure::new(cutoffs)));
+            }
+            "recall" => {
+                let cutoffs = if params_str.is_empty() {
+                    vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<usize>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::cutoffs::RecallCutMeasure::new(cutoffs)));
+            }
+            "success" => {
+                let cutoffs = if params_str.is_empty() {
+                    vec![1, 5, 10]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<usize>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::cutoffs::SuccessCutMeasure::new(cutoffs)));
+            }
+            "11pt_avg" => {
+                let cutoffs = if params_str.is_empty() {
+                    vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<f64>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid float cutoff '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::core::Avg11PtMeasure::new(cutoffs, params_str)));
+            }
+            "utility" => {
+                let coeffs = if params_str.is_empty() {
+                    vec![1.0, -1.0, 0.0, 0.0]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<f64>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid float coefficient '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    if list.len() != 4 {
+                        eprintln!("te-rust: Improper number of coefficients (expected 4) in measure '{}'", name);
+                        process::exit(1);
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::core::UtilityMeasure::new(coeffs, params_str)));
+            }
+            "relstring" => {
+                let len = if params_str.is_empty() {
+                    10
+                } else {
+                    match params_str.trim().parse::<usize>() {
+                        Ok(v) => v,
+                        Err(_) => {
+                            eprintln!("te-rust: Invalid length '{}' in measure '{}'", params_str, name);
+                            process::exit(1);
+                        }
+                    }
+                };
+                active_measures.push(Box::new(metrics::core::RelstringMeasure::new(len, params_str)));
             }
             other => {
                 eprintln!("te-rust: Unknown measure '{}'", other);
@@ -326,6 +426,9 @@ fn main() {
         let total_qrels_queries = qrels_data.queries.len();
 
         for (m_idx, m) in active_measures.iter().enumerate() {
+            if !m.is_summary_enabled() {
+                continue;
+            }
             let mut totals = running_totals[m_idx].clone();
             m.average(&config, &mut totals, num_queries_evaluated, total_qrels_queries);
 

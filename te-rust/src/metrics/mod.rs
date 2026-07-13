@@ -77,6 +77,11 @@ pub trait Measure: Send + Sync {
     /// Returns the exact sub-metric names to be calculated (e.g., `["P_5", "P_10", "P_15"]`).
     fn sub_metrics(&self) -> Vec<String>;
 
+    /// Whether this measure should be reported in the summary averages at the end.
+    fn is_summary_enabled(&self) -> bool {
+        true
+    }
+
     /// Returns the initial values for the running totals of this measure.
     fn initial_values(&self) -> Vec<MetricValue>;
 

@@ -55,32 +55,32 @@ Implement the `Measure` trait and the following core metrics (the standard `all_
 
 ---
 
-## Stage 2: Help Granularity, Stock Groups, and Parametric Measures
+## Stage 2: Help Granularity, Stock Groups, and Parametric Measures [Completed]
 
 Stage 2 extends the core pipeline to support dynamic user assistance, standard stock groups (nicknames), dynamic parametric metrics, and complete standard command-line options.
 
-### 2.1 Help Granularity, Sane CLI Defaults, and Flag Expansion (Issue 21)
-*   **Granular Help System**:
+### 2.1 Help Granularity, Sane CLI Defaults, and Flag Expansion (Issue 21) [Completed]
+*   **Granular Help System [Completed]**:
     *   Extend `Measure` trait to include `fn short_description(&self) -> &'static str`.
     *   Implement `--help-measures` which lists only available measure names alongside their short descriptions and exits immediately.
     *   Implement `--help-measure <name>` which retrieves the requested measure and prints its full description via `explanation()` and exits immediately.
-*   **Sane CLI Defaults**:
+*   **Sane CLI Defaults [Completed]**:
     *   If no `-m` flag is supplied on the command line, `te-rust` defaults to executing and reporting the `"official"` stock group of measures.
-*   **CLI flag parity**: Complete support for `-N <num>` (collection size) and map its value appropriately.
+*   **CLI flag parity [Completed]**: Complete support for `-N <num>` (collection size) and map its value appropriately.
 
-### 2.2 Predefined Groups & Dynamic Parameter Parsing
-*   **Stock Group Nicknames**:
+### 2.2 Predefined Groups & Dynamic Parameter Parsing [Completed]
+*   **Stock Group Nicknames [Completed]**:
     *   Define group mappings for `official`, `all_trec`, and `set`.
     *   When an argument to `-m` matches a group nickname, dynamically expand it to include all corresponding individual measures.
-*   **Dynamic Parameter Parsing**:
+*   **Dynamic Parameter Parsing [Completed]**:
     *   Refactor metrics registry to support parsing parameter cutoffs dynamically from period-delimited parameter strings (e.g. `P.5,10` or `ndcg_cut.10`).
     *   Allow multiple independent `-m` flags on the command line, expanding and merging all specified measures.
 
-### 2.3 Specialized Standard Metrics and Non-Standard Formats
-*   **Additional measures**: Implement `success`, 11-point average precision (`11pt_avg`), parametric standard `recall`, cost-weighted `utility`, and relevance string visualizer `relstring`.
+### 2.3 Specialized Standard Metrics and Non-Standard Formats [Completed]
+*   **Additional measures [Completed]**: Implement `success`, 11-point average precision (`11pt_avg`), parametric standard `recall`, cost-weighted `utility`, and relevance string visualizer `relstring`.
 *   Ensure that any incompatibilities between requested metrics (such as pairwise metrics when standard qrels are used) are checked and aborted during metadata evaluation.
 
-### 2.4 Verification and Regression Suite Expansion
+### 2.4 Verification and Regression Suite Expansion [Completed]
 *   Extend regression tests in `tests/regression.rs` to run and verify dynamic parametric quicktests (`test_meas_params`, `test_relstring_relevance_level`).
 
 
