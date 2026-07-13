@@ -8,7 +8,7 @@ pub mod metrics;
 
 use io::{parse_trec_qrels, parse_trec_run, QrelsQuery, RunQuery};
 use eval::alignment::align_query;
-use metrics::{get_measures_for_all_trec, EvalConfig, EvalState, MetricValue, ValueFormat};
+use metrics::{EvalConfig, EvalState, Measure, MetricValue, ValueFormat};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -41,35 +41,211 @@ struct Args {
     #[arg(short = 'M')]
     max_docs_per_topic: Option<usize>,
 
+    /// Number of documents in the collection
+    #[arg(short = 'N', default_value = "0")]
+    num_docs_in_coll: usize,
+
+    /// Calculate only the indicated measure(s)
+    #[arg(short = 'm', value_name = "measure")]
+    measures: Vec<String>,
+
+    /// List all available measures with a short description and exit
+    #[arg(long = "help-measures")]
+    help_measures: bool,
+
+    /// Print detailed explanation of the specified measure and exit
+    #[arg(long = "help-measure", value_name = "name")]
+    help_measure: Option<String>,
+
     /// Path to relevance judgments (qrels) file
-    qrels_file: String,
+    qrels_file: Option<String>,
 
     /// Path to run results file
-    run_file: String,
+    run_file: Option<String>,
+}
+
+fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
+    let all_possible_measures: Vec<Box<dyn Measure>> = vec![
+        Box::new(metrics::core::RunIdMeasure::new()),
+        Box::new(metrics::core::NumRetMeasure::new()),
+        Box::new(metrics::core::NumRelMeasure::new()),
+        Box::new(metrics::core::NumRelRetMeasure::new()),
+        Box::new(metrics::core::MapMeasure::new()),
+        Box::new(metrics::core::RprecMeasure::new()),
+        Box::new(metrics::core::RecipRankMeasure::new()),
+        Box::new(metrics::cutoffs::PCutMeasure::new(vec![])),
+        Box::new(metrics::cutoffs::NdcgCutMeasure::new(vec![])),
+        Box::new(metrics::core::BprefMeasure::new()),
+    ];
+
+    if help_measures {
+        println!("{:<15}\t{}", "Measure", "Description");
+        println!("--------------------------------------------------");
+        for m in all_possible_measures {
+            println!("{:<15}\t{}", m.name(), m.short_description());
+        }
+        process::exit(0);
+    }
+
+    if let Some(target) = help_measure {
+        for m in all_possible_measures {
+            if m.name().eq_ignore_ascii_case(target) {
+                println!("{}", m.explanation());
+                process::exit(0);
+            }
+        }
+        eprintln!("te-rust: Unknown measure '{}'", target);
+        process::exit(1);
+    }
 }
 
 fn main() {
     let args = Args::parse();
 
-    // 1. Ingest inputs
-    let qrels_data = match parse_trec_qrels(&args.qrels_file) {
-        Ok(data) => data,
-        Err(e) => {
-            eprintln!("Error parsing qrels file '{}': {}", args.qrels_file, e);
+    // 1. Handle help flags if present
+    if args.help_measures || args.help_measure.is_some() {
+        handle_help_flags(args.help_measures, args.help_measure.as_deref());
+    }
+
+    // 2. Validate positional files
+    let qrels_filename = match args.qrels_file {
+        Some(f) => f,
+        None => {
+            eprintln!("error: the following required arguments were not provided:\n  <QRELS_FILE>\n  <RUN_FILE>\n\nUsage: te-rust [OPTIONS] <QRELS_FILE> <RUN_FILE>");
             process::exit(1);
         }
     };
 
-    let run_data = match parse_trec_run(&args.run_file) {
-        Ok(data) => data,
-        Err(e) => {
-            eprintln!("Error parsing run file '{}': {}", args.run_file, e);
+    let run_filename = match args.run_file {
+        Some(f) => f,
+        None => {
+            eprintln!("error: the following required arguments were not provided:\n  <RUN_FILE>\n\nUsage: te-rust [OPTIONS] <QRELS_FILE> <RUN_FILE>");
             process::exit(1);
         }
     };
 
-    // 2. Set up registries and mappings
-    let active_measures = get_measures_for_all_trec();
+    // 3. Ingest inputs
+    let qrels_data = match parse_trec_qrels(&qrels_filename) {
+        Ok(data) => data,
+        Err(e) => {
+            eprintln!("Error parsing qrels file '{}': {}", qrels_filename, e);
+            process::exit(1);
+        }
+    };
+
+    let run_data = match parse_trec_run(&run_filename) {
+        Ok(data) => data,
+        Err(e) => {
+            eprintln!("Error parsing run file '{}': {}", run_filename, e);
+            process::exit(1);
+        }
+    };
+
+    // 4. Resolve measures and predefined nicknames (groups)
+    let mut requested_names = Vec::new();
+    if args.measures.is_empty() {
+        requested_names.push("official".to_string());
+    } else {
+        for m in &args.measures {
+            requested_names.push(m.clone());
+        }
+    }
+
+    let mut final_names = Vec::new();
+    for name in &requested_names {
+        match name.as_str() {
+            "official" => {
+                final_names.push("runid".to_string());
+                final_names.push("num_ret".to_string());
+                final_names.push("num_rel".to_string());
+                final_names.push("num_rel_ret".to_string());
+                final_names.push("map".to_string());
+                final_names.push("Rprec".to_string());
+                final_names.push("recip_rank".to_string());
+                final_names.push("bpref".to_string());
+                final_names.push("P".to_string());
+            }
+            "set" => {
+                final_names.push("runid".to_string());
+                final_names.push("num_ret".to_string());
+                final_names.push("num_rel".to_string());
+                final_names.push("num_rel_ret".to_string());
+            }
+            "all_trec" => {
+                final_names.push("runid".to_string());
+                final_names.push("num_ret".to_string());
+                final_names.push("num_rel".to_string());
+                final_names.push("num_rel_ret".to_string());
+                final_names.push("map".to_string());
+                final_names.push("Rprec".to_string());
+                final_names.push("recip_rank".to_string());
+                final_names.push("bpref".to_string());
+                final_names.push("P".to_string());
+                final_names.push("ndcg_cut".to_string());
+            }
+            other => {
+                final_names.push(other.to_string());
+            }
+        }
+    }
+
+    let mut active_measures: Vec<Box<dyn Measure>> = Vec::new();
+    for name in &final_names {
+        let parts: Vec<&str> = name.splitn(2, '.').collect();
+        let root = parts[0];
+        let params_str = if parts.len() > 1 { parts[1] } else { "" };
+
+        match root {
+            "runid" => active_measures.push(Box::new(metrics::core::RunIdMeasure::new())),
+            "num_ret" => active_measures.push(Box::new(metrics::core::NumRetMeasure::new())),
+            "num_rel" => active_measures.push(Box::new(metrics::core::NumRelMeasure::new())),
+            "num_rel_ret" => active_measures.push(Box::new(metrics::core::NumRelRetMeasure::new())),
+            "map" => active_measures.push(Box::new(metrics::core::MapMeasure::new())),
+            "Rprec" => active_measures.push(Box::new(metrics::core::RprecMeasure::new())),
+            "recip_rank" => active_measures.push(Box::new(metrics::core::RecipRankMeasure::new())),
+            "bpref" => active_measures.push(Box::new(metrics::core::BprefMeasure::new())),
+            "P" => {
+                let cutoffs = if params_str.is_empty() {
+                    vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<usize>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::cutoffs::PCutMeasure::new(cutoffs)));
+            }
+            "ndcg_cut" => {
+                let cutoffs = if params_str.is_empty() {
+                    vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<usize>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::cutoffs::NdcgCutMeasure::new(cutoffs)));
+            }
+            other => {
+                eprintln!("te-rust: Unknown measure '{}'", other);
+                process::exit(1);
+            }
+        }
+    }
 
     let mut qrels_by_qid: HashMap<String, &QrelsQuery> = HashMap::with_capacity(qrels_data.queries.len());
     for qrels_q in &qrels_data.queries {
@@ -81,7 +257,7 @@ fn main() {
         run_by_qid.insert(run_q.qid.clone(), run_q);
     }
 
-    // 3. Collect topic IDs in alphabetical qid order (matching qrels_data sorting)
+    // 5. Collect topic IDs in alphabetical qid order (matching qrels_data sorting)
     let mut eval_qids = Vec::new();
     let mut num_queries_evaluated = 0;
 
@@ -95,7 +271,7 @@ fn main() {
         }
     }
 
-    // 4. Setup runtime config
+    // 6. Setup runtime config
     let config = EvalConfig {
         query_flag: args.query_flag,
         summary_flag: !args.no_summary_flag,
@@ -103,16 +279,16 @@ fn main() {
         average_complete_flag: args.complete_set_average,
         judged_docs_only_flag: args.judged_docs_only,
         max_num_docs_per_topic: args.max_docs_per_topic.unwrap_or(usize::MAX),
-        num_docs_in_coll: 0,
+        num_docs_in_coll: args.num_docs_in_coll,
     };
 
-    // 5. Initialize running totals
+    // 7. Initialize running totals
     let mut running_totals: Vec<Vec<MetricValue>> = active_measures
         .iter()
         .map(|m| m.initial_values())
         .collect();
 
-    // 6. Execution Loop: Query Evaluation
+    // 8. Execution Loop: Query Evaluation
     for qid in &eval_qids {
         let qrels_q = qrels_by_qid.get(qid).unwrap(); // guaranteed to exist
         let run_q = run_by_qid.get(qid).copied();
@@ -145,7 +321,7 @@ fn main() {
         }
     }
 
-    // 7. Summary averages / totals
+    // 9. Summary averages / totals
     if config.summary_flag && num_queries_evaluated > 0 {
         let total_qrels_queries = qrels_data.queries.len();
 

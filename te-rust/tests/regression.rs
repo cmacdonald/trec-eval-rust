@@ -175,3 +175,49 @@ fn test_regression_max_docs() {
 fn test_regression_relevance_level() {
     compare_outputs(&["-l", "2"], &["-l", "2"], "qrels.test", "results.test");
 }
+
+#[test]
+fn test_regression_parametric_cutoffs() {
+    compare_outputs(
+        &["-m", "P.5", "-m", "ndcg_cut.10"],
+        &["-m", "P.5", "-m", "ndcg_cut.10"],
+        "qrels.test",
+        "results.test",
+    );
+}
+
+#[test]
+fn test_regression_stock_set() {
+    compare_outputs(
+        &["-m", "set"],
+        &["-m", "set"],
+        "qrels.test",
+        "results.test",
+    );
+}
+
+#[test]
+fn test_regression_help_flags() {
+    let rust_bin = get_te_rust_bin();
+    
+    // Test --help-measures
+    let output_measures = Command::new(&rust_bin)
+        .arg("--help-measures")
+        .output()
+        .expect("Failed to run --help-measures");
+    assert!(output_measures.status.success());
+    let stdout_m = String::from_utf8_lossy(&output_measures.stdout);
+    assert!(stdout_m.contains("map"));
+    assert!(stdout_m.contains("Mean Average Precision"));
+
+    // Test --help-measure map
+    let output_map = Command::new(&rust_bin)
+        .arg("--help-measure")
+        .arg("map")
+        .output()
+        .expect("Failed to run --help-measure map");
+    assert!(output_map.status.success());
+    let stdout_map = String::from_utf8_lossy(&output_map.stdout);
+    assert!(stdout_map.contains("Calculates the average of precision scores"));
+}
+
