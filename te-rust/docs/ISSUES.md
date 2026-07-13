@@ -6,18 +6,20 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Active Issues
 
-### 21. Simplified Help Output with Per-Measure Granularity
-*   **Type**: Design / Feature
-*   **Status**: Active
-*   **Description**: In standard `trec_eval`, running `-h` prints a massive wall of text containing detailed documentation of every single metric, which is overwhelming. For `te-rust`, we want to design a more granular, interactive help system:
-    1. A generic help switch (e.g. `te-rust --help-measures` or similar) should list only the names of the available measures.
-    2. A specific command or parameter (e.g. `te-rust --help <measure_name>`) should print the detailed documentation and explanation for only that requested measure.
-    3. The detailed documentation/explanation must be defined directly in the source code of the individual `Measure` implementation (such as via its `explanation()` trait method).
+*(There are currently no active issues. All active design questions and tasks are fully resolved for the current stages!)*
 
 
 ---
 
 ## Resolved Issues
+
+### 21. Simplified Help Output with Per-Measure Granularity
+*   **Type**: Design / Feature
+*   **Status**: Resolved
+*   **Description**: In standard `trec_eval`, running `-h` prints a massive wall of text containing detailed documentation of every single metric, which is overwhelming. For `te-rust`, we designed a granular, interactive help system:
+    1. A generic help switch (`--help-measures`) lists only the names of the available measures and their brief descriptions.
+    2. A specific option (`--help-measure <name>`) prints the detailed documentation and explanation for only that requested measure.
+    3. The detailed documentation/explanation is defined directly in the source code of the individual `Measure` implementation via its `explanation()` and `short_description()` trait methods.
 
 ### 1. Unified vs. Hierarchical Flat Arrays (De-duplication of Query IDs)
 *   **Type**: Design
