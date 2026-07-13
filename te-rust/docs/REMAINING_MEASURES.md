@@ -7,11 +7,11 @@ This document serves as a persistent checklist and implementation roadmap for th
 ## 1. Set-Based (Unranked) Measures
 Set-based measures evaluate unranked retrieved sets (often using the `-M` parameter to restrict retrieved size).
 
-- [ ] **`set_P`** (`m_set_P.c`): Set Precision: `num_relevant_retrieved / num_retrieved`.
-- [ ] **`set_recall`** (`m_set_recall.c`): Set Recall: `num_relevant_retrieved / num_relevant`.
-- [ ] **`set_relative_P`** (`m_set_rel_P.c`): Set Relative Precision (ratio of actual set precision to maximum possible set precision).
-- [ ] **`set_map`** (`m_set_map.c`): Set Mean Average Precision.
-- [ ] **`set_F`** (`m_set_F.c`): Set F-measure (weighted harmonic mean of set precision and set recall).
+- [x] **`set_P`** (Implemented / Handled in precision/recall)
+- [x] **`set_recall`** (Implemented / Handled in precision/recall)
+- [x] **`set_relative_P`** (`m_set_rel_P.c`): Set Relative Precision (ratio of actual set precision to maximum possible set precision).
+- [x] **`set_map`** (`m_set_map.c`): Set Mean Average Precision.
+- [x] **`set_F`** (`m_set_F.c`): Set F-measure (weighted harmonic mean of set precision and set recall).
 
 ---
 
