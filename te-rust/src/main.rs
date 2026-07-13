@@ -176,6 +176,7 @@ fn main() {
                 final_names.push("num_rel".to_string());
                 final_names.push("num_rel_ret".to_string());
                 final_names.push("set_relative_P".to_string());
+                final_names.push("set_map".to_string());
             }
             "all_trec" => {
                 final_names.push("runid".to_string());
@@ -195,6 +196,7 @@ fn main() {
                 final_names.push("utility".to_string());
                 final_names.push("relstring".to_string());
                 final_names.push("set_relative_P".to_string());
+                final_names.push("set_map".to_string());
             }
             other => {
                 final_names.push(other.to_string());
@@ -214,6 +216,7 @@ fn main() {
             "num_rel" => active_measures.push(Box::new(metrics::num_rel::NumRelMeasure::new())),
             "num_rel_ret" => active_measures.push(Box::new(metrics::num_rel_ret::NumRelRetMeasure::new())),
             "set_relative_P" => active_measures.push(Box::new(metrics::set_relative_p::SetRelativePMeasure::new())),
+            "set_map" => active_measures.push(Box::new(metrics::set_map::SetMapMeasure::new())),
             "map" => active_measures.push(Box::new(metrics::map::MapMeasure::new())),
             "Rprec" => active_measures.push(Box::new(metrics::rprec::RprecMeasure::new())),
             "recip_rank" => active_measures.push(Box::new(metrics::recip_rank::RecipRankMeasure::new())),
