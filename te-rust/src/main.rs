@@ -199,6 +199,7 @@ fn main() {
                 final_names.push("set_relative_P".to_string());
                 final_names.push("set_map".to_string());
                 final_names.push("set_F".to_string());
+                final_names.push("G".to_string());
             }
             other => {
                 final_names.push(other.to_string());
@@ -233,6 +234,7 @@ fn main() {
                 };
                 active_measures.push(Box::new(metrics::set_f::SetFMeasure::new(beta, params_str)));
             }
+            "G" => active_measures.push(Box::new(metrics::g::GMeasure::new(params_str))),
             "map" => active_measures.push(Box::new(metrics::map::MapMeasure::new())),
             "Rprec" => active_measures.push(Box::new(metrics::rprec::RprecMeasure::new())),
             "recip_rank" => active_measures.push(Box::new(metrics::recip_rank::RecipRankMeasure::new())),
