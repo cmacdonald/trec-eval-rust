@@ -11,7 +11,7 @@ pub(crate) fn count_relevant_retrieved_up_to(results_rel_list: &[i64], limit: us
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct GainsConfig {
+pub struct GainsConfig {
     pub custom_gains: HashMap<i64, f64>,
 }
 
@@ -33,14 +33,14 @@ impl GainsConfig {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct RelGain {
+pub struct RelGain {
     pub rel_level: i64,
     pub gain: f64,
     pub num_at_level: usize,
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Gains {
+pub struct Gains {
     pub rel_gains: Vec<RelGain>,
     pub _total_num_at_levels: usize,
 }

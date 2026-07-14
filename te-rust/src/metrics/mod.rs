@@ -56,6 +56,7 @@ pub struct EvalConfig {
     pub judged_docs_only_flag: bool,
     pub max_num_docs_per_topic: usize,
     pub num_docs_in_coll: usize,
+    pub global_gains: Option<crate::metrics::common::GainsConfig>,
 }
 
 impl Default for EvalConfig {
@@ -68,6 +69,7 @@ impl Default for EvalConfig {
             judged_docs_only_flag: false,
             max_num_docs_per_topic: usize::MAX,
             num_docs_in_coll: 0,
+            global_gains: None,
         }
     }
 }

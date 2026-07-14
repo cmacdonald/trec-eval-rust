@@ -47,10 +47,17 @@ impl Measure for NdcgCutMeasure {
         vec![MetricValue::Float(0.0); self.cutoffs.len()]
     }
 
-    fn calc(&self, _config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
+    fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
         match state {
             EvalState::Standard(q_state) => {
-                let gains = Gains::setup(&self.gains_config, &q_state.rel_levels);
+                let gains_config = if !self.gains_config.custom_gains.is_empty() {
+                    &self.gains_config
+                } else if let Some(ref gg) = config.global_gains {
+                    gg
+                } else {
+                    &self.gains_config
+                };
+                let gains = Gains::setup(gains_config, &q_state.rel_levels);
                 let num_params = self.cutoffs.len();
                 let mut dcgs = vec![0.0; num_params];
                 let mut idcgs = vec![0.0; num_params];
@@ -181,5 +188,33 @@ mod tests {
         let state = make_mock_state(vec![1, 0, 1], 0);
         let actual = measure.calc(&config, &EvalState::Standard(state));
         assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
+    }
+
+    #[test]
+    fn test_ndcg_cut_global_gains() {
+        let measure = NdcgCutMeasure::new(vec![1, 3]);
+        let mut config = EvalConfig::default();
+        config.global_gains = Some(GainsConfig::parse("1=5.0,2=10.0"));
+        
+        let state = crate::eval::alignment::QueryEvalState {
+            qid: "mock_topic".to_string(),
+            run_id: "mock_run".to_string(),
+            results_rel_list: vec![1, 0, 2],
+            num_ret: 3,
+            num_rel: 2,
+            num_rel_ret: 2,
+            num_nonpool: 0,
+            num_unjudged_in_pool: 0,
+            rel_levels: vec![100, 1, 1],
+        };
+        
+        let actual = measure.calc(&config, &EvalState::Standard(state));
+        assert_eq!(actual.len(), 2);
+        assert_eq!(actual[0], MetricValue::Float(0.5));
+        if let MetricValue::Float(v) = actual[1] {
+            assert!((v - 0.7601875).abs() < 1e-6);
+        } else {
+            panic!("Expected float value");
+        }
     }
 }
