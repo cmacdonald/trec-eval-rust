@@ -23,6 +23,9 @@ pub mod map_cut;
 pub mod relative_p;
 pub mod rprec_mult;
 pub mod iprec_at_recall;
+pub mod gm_map;
+pub mod gm_bpref;
+pub mod infap;
 
 use crate::eval::QueryEvalState;
 
@@ -107,6 +110,11 @@ pub trait Measure: Send + Sync {
         true
     }
 
+    /// Whether this measure should be reported for individual queries.
+    fn is_query_enabled(&self) -> bool {
+        true
+    }
+
     /// Returns the initial values for the running totals of this measure.
     fn initial_values(&self) -> Vec<MetricValue>;
 
@@ -163,5 +171,8 @@ pub fn get_measures_for_all_trec() -> Vec<Box<dyn Measure>> {
         Box::new(relative_p::RelativePMeasure::default()),
         Box::new(rprec_mult::RprecMultMeasure::default()),
         Box::new(iprec_at_recall::IprecAtRecallMeasure::default()),
+        Box::new(gm_map::GMMapMeasure::default()),
+        Box::new(gm_bpref::GMBprefMeasure::default()),
+        Box::new(infap::InfAPMeasure::default()),
     ]
 }

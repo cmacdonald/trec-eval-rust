@@ -39,9 +39,9 @@ Precision-at-cutoff variations.
 ## 4. Geometric Mean & Inferred Relevance Measures
 Measures useful for summarizing across highly skewed topic performance or handling incomplete judgments.
 
-- [ ] **`gm_map`** (`m_gm_map.c`): Geometric Mean Average Precision.
-- [ ] **`gm_bpref`** (`m_gm_bpref.c`): Geometric Mean bpref.
-- [ ] **`infAP`** (`m_infap.c`): Inferred Average Precision (for incomplete judgment pools).
+- [x] **`gm_map`** (`m_gm_map.c`): Geometric Mean Average Precision.
+- [x] **`gm_bpref`** (`m_gm_bpref.c`): Geometric Mean bpref.
+- [x] **`infAP`** (`m_infap.c`): Inferred Average Precision (for incomplete judgment pools).
 
 ---
 

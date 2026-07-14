@@ -89,6 +89,9 @@ fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
         Box::new(metrics::relative_p::RelativePMeasure::new(vec![])),
         Box::new(metrics::rprec_mult::RprecMultMeasure::new(vec![])),
         Box::new(metrics::iprec_at_recall::IprecAtRecallMeasure::new(vec![])),
+        Box::new(metrics::gm_map::GMMapMeasure::new()),
+        Box::new(metrics::gm_bpref::GMBprefMeasure::new()),
+        Box::new(metrics::infap::InfAPMeasure::new()),
     ];
 
     if help_measures {
@@ -448,6 +451,15 @@ fn main() {
                 };
                 active_measures.push(Box::new(metrics::iprec_at_recall::IprecAtRecallMeasure::new(cutoffs)));
             }
+            "gm_map" => {
+                active_measures.push(Box::new(metrics::gm_map::GMMapMeasure::new()));
+            }
+            "gm_bpref" => {
+                active_measures.push(Box::new(metrics::gm_bpref::GMBprefMeasure::new()));
+            }
+            "infAP" => {
+                active_measures.push(Box::new(metrics::infap::InfAPMeasure::new()));
+            }
             other => {
                 eprintln!("te-rust: Unknown measure '{}'", other);
                 process::exit(1);
@@ -519,7 +531,7 @@ fn main() {
         for (m_idx, m) in active_measures.iter().enumerate() {
             let q_scores = m.calc(&config, &eval_state);
 
-            if config.query_flag {
+            if config.query_flag && m.is_query_enabled() {
                 let sub_names = m.sub_metrics();
                 for (sub_idx, val) in q_scores.iter().enumerate() {
                     let name = &sub_names[sub_idx];

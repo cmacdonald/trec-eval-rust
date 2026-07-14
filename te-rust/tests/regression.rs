@@ -251,3 +251,13 @@ fn test_regression_group_3() {
     );
 }
 
+#[test]
+fn test_regression_group_4() {
+    compare_outputs(
+        &["-q", "-m", "gm_map", "-m", "gm_bpref", "-m", "infAP"],
+        &["-q", "-m", "gm_map", "-m", "gm_bpref", "-m", "infAP"],
+        "qrels.test",
+        "results.test",
+    );
+}
+
