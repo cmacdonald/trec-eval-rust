@@ -276,7 +276,7 @@ fn main() {
                 active_measures.push(Box::new(metrics::ndcg_cut::NdcgCutMeasure::new(cutoffs)));
             }
             "ndcg" => {
-                active_measures.push(Box::new(metrics::ndcg::NdcgMeasure::new()));
+                active_measures.push(Box::new(metrics::ndcg::NdcgMeasure::new(params_str)));
             }
             "recall" => {
                 let cutoffs = if params_str.is_empty() {

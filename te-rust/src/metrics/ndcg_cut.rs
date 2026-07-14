@@ -1,14 +1,20 @@
 use crate::metrics::{EvalConfig, EvalState, EvaluationType, Measure, MetricValue, ValueFormat};
+use crate::metrics::common::{Gains, GainsConfig};
 
 pub struct NdcgCutMeasure {
     cutoffs: Vec<usize>,
+    gains_config: GainsConfig,
     sub_metrics: Vec<String>,
 }
 
 impl NdcgCutMeasure {
     pub fn new(cutoffs: Vec<usize>) -> Self {
         let sub_metrics = cutoffs.iter().map(|c| format!("ndcg_cut_{}", c)).collect();
-        Self { cutoffs, sub_metrics }
+        Self {
+            cutoffs,
+            gains_config: GainsConfig::parse(""),
+            sub_metrics,
+        }
     }
 }
 
@@ -44,6 +50,7 @@ impl Measure for NdcgCutMeasure {
     fn calc(&self, _config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
         match state {
             EvalState::Standard(q_state) => {
+                let gains = Gains::setup(&self.gains_config, &q_state.rel_levels);
                 let num_params = self.cutoffs.len();
                 let mut dcgs = vec![0.0; num_params];
                 let mut idcgs = vec![0.0; num_params];
@@ -64,9 +71,10 @@ impl Measure for NdcgCutMeasure {
                             break;
                         }
                     }
-                    let gain = q_state.results_rel_list[i];
-                    if gain > 0 {
-                        dcg_sum += (gain as f64) / ((i + 2) as f64).log2();
+                    let rel = q_state.results_rel_list[i];
+                    let results_gain = gains.get_gain(rel);
+                    if results_gain != 0.0 {
+                        dcg_sum += results_gain / ((i + 2) as f64).log2();
                     }
                 }
                 while cutoff_index < num_params {
@@ -76,18 +84,19 @@ impl Measure for NdcgCutMeasure {
 
                 // 2. Calculate Ideal DCG (IDCG) at each cutoff
                 cutoff_index = 0;
-                let mut cur_lvl = q_state.rel_levels.len() as i64 - 1;
+                let mut cur_lvl_idx = gains.rel_gains.len() as i64 - 1;
                 let mut lvl_count = 0;
                 let mut ideal_dcg_sum = 0.0;
 
                 let mut i = 0;
                 loop {
                     lvl_count += 1;
-                    while cur_lvl > 0 && lvl_count > q_state.rel_levels[cur_lvl as usize] {
-                        cur_lvl -= 1;
+                    while cur_lvl_idx >= 0 && lvl_count > gains.rel_gains[cur_lvl_idx as usize].num_at_level {
+                        cur_lvl_idx -= 1;
                         lvl_count = 1;
                     }
-                    if cur_lvl == 0 {
+                    let ideal_gain = if cur_lvl_idx >= 0 { gains.rel_gains[cur_lvl_idx as usize].gain } else { 0.0 };
+                    if ideal_gain <= 0.0 {
                         break;
                     }
 
@@ -103,8 +112,7 @@ impl Measure for NdcgCutMeasure {
                         }
                     }
 
-                    let gain = cur_lvl;
-                    ideal_dcg_sum += (gain as f64) / ((i + 2) as f64).log2();
+                    ideal_dcg_sum += ideal_gain / ((i + 2) as f64).log2();
                     i += 1;
                 }
                 while cutoff_index < num_params {

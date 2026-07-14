@@ -1,10 +1,22 @@
 use crate::metrics::{EvalConfig, EvalState, EvaluationType, Measure, MetricValue, ValueFormat};
+use crate::metrics::common::{Gains, GainsConfig};
 
-pub struct NdcgMeasure;
+pub struct NdcgMeasure {
+    gains_config: GainsConfig,
+    sub_metrics: Vec<String>,
+}
 
 impl NdcgMeasure {
-    pub fn new() -> Self {
-        Self
+    pub fn new(params_str: &str) -> Self {
+        let name = if params_str.is_empty() {
+            "ndcg".to_string()
+        } else {
+            format!("ndcg_{}", params_str)
+        };
+        Self {
+            gains_config: GainsConfig::parse(params_str),
+            sub_metrics: vec![name],
+        }
     }
 }
 
@@ -30,37 +42,67 @@ impl Measure for NdcgMeasure {
     }
 
     fn sub_metrics(&self) -> Vec<String> {
-        vec!["ndcg".to_string()]
+        self.sub_metrics.clone()
     }
 
     fn initial_values(&self) -> Vec<MetricValue> {
         vec![MetricValue::Float(0.0)]
     }
 
-    fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
+    fn calc(&self, _config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
         match state {
             EvalState::Standard(q_state) => {
-                // 1. Calculate Results DCG over the entire retrieved set
-                let mut dcg = 0.0;
-                for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
-                    if rel >= config.relevance_level {
-                        dcg += (rel as f64) / ((i + 2) as f64).log2();
+                let gains = Gains::setup(&self.gains_config, &q_state.rel_levels);
+
+                let mut results_dcg = 0.0;
+                let mut ideal_dcg = 0.0;
+                let mut cur_level = gains.rel_gains.len() as i64 - 1;
+                let mut ideal_gain = if cur_level >= 0 { gains.rel_gains[cur_level as usize].gain } else { 0.0 };
+                let mut num_at_level = 0;
+
+                let mut i = 0;
+                while i < q_state.num_ret && ideal_gain > 0.0 {
+                    let results_gain = gains.get_gain(q_state.results_rel_list[i]);
+                    if results_gain != 0.0 {
+                        results_dcg += results_gain / ((i + 2) as f64).log2();
                     }
+
+                    num_at_level += 1;
+                    while cur_level >= 0 && num_at_level > gains.rel_gains[cur_level as usize].num_at_level {
+                        num_at_level = 1;
+                        cur_level -= 1;
+                        ideal_gain = if cur_level >= 0 { gains.rel_gains[cur_level as usize].gain } else { 0.0 };
+                    }
+
+                    if ideal_gain > 0.0 {
+                        ideal_dcg += ideal_gain / ((i + 2) as f64).log2();
+                    }
+
+                    i += 1;
                 }
 
-                // 2. Calculate Ideal DCG over all relevant documents in descending order of grade
-                let mut idcg = 0.0;
-                let mut rank_idx = 0;
-                // Iterate grades in descending order down to relevance_level
-                for grade in (config.relevance_level as usize..q_state.rel_levels.len()).rev() {
-                    let count = q_state.rel_levels[grade];
-                    for _ in 0..count {
-                        idcg += (grade as f64) / ((rank_idx + 2) as f64).log2();
-                        rank_idx += 1;
+                while i < q_state.num_ret {
+                    let results_gain = gains.get_gain(q_state.results_rel_list[i]);
+                    if results_gain != 0.0 {
+                        results_dcg += results_gain / ((i + 2) as f64).log2();
                     }
+                    i += 1;
                 }
 
-                let score = if idcg > 0.0 { dcg / idcg } else { 0.0 };
+                while ideal_gain > 0.0 {
+                    num_at_level += 1;
+                    while cur_level >= 0 && num_at_level > gains.rel_gains[cur_level as usize].num_at_level {
+                        num_at_level = 1;
+                        cur_level -= 1;
+                        ideal_gain = if cur_level >= 0 { gains.rel_gains[cur_level as usize].gain } else { 0.0 };
+                    }
+                    if ideal_gain > 0.0 {
+                        ideal_dcg += ideal_gain / ((i + 2) as f64).log2();
+                    }
+                    i += 1;
+                }
+
+                let score = if ideal_dcg > 0.0 { results_dcg / ideal_dcg } else { 0.0 };
                 vec![MetricValue::Float(score)]
             }
         }
@@ -69,7 +111,7 @@ impl Measure for NdcgMeasure {
 
 impl Default for NdcgMeasure {
     fn default() -> Self {
-        Self::new()
+        Self::new("")
     }
 }
 
@@ -80,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_ndcg_standard() {
-        let measure = NdcgMeasure::new();
+        let measure = NdcgMeasure::new("");
         let config = EvalConfig::default();
         // retrieved: [1, 0, 1], num_rel = 2.
         // dcg = 1.0 / log2(2) + 0.0 + 1.0 / log2(4) = 1.0 + 0.5 = 1.5.
@@ -98,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_ndcg_empty_ranking() {
-        let measure = NdcgMeasure::new();
+        let measure = NdcgMeasure::new("");
         let config = EvalConfig::default();
         let state = make_mock_state(vec![], 5);
         let actual = measure.calc(&config, &EvalState::Standard(state));
@@ -107,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_ndcg_zero_relevance() {
-        let measure = NdcgMeasure::new();
+        let measure = NdcgMeasure::new("");
         let config = EvalConfig::default();
         let state = make_mock_state(vec![1, 0, 1], 0);
         let actual = measure.calc(&config, &EvalState::Standard(state));

@@ -147,7 +147,7 @@ pub fn get_measures_for_all_trec() -> Vec<Box<dyn Measure>> {
         Box::new(recip_rank::RecipRankMeasure::new()),
         Box::new(precision::PrecisionCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
         Box::new(ndcg_cut::NdcgCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
-        Box::new(ndcg::NdcgMeasure::new()),
+        Box::new(ndcg::NdcgMeasure::new("")),
         Box::new(bpref::BprefMeasure::new()),
         Box::new(set_relative_p::SetRelativePMeasure::new()),
         Box::new(set_map::SetMapMeasure::new()),
