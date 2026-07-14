@@ -48,8 +48,8 @@ Measures useful for summarizing across highly skewed topic performance or handli
 ## 5. Pool & Judgment Statistics
 Descriptive measures capturing pool coverage or unjudged proportions.
 
-- [ ] **`unj`** (`m_unjudged.c`): Number of unjudged retrieved documents (at specific cutoffs, e.g., `unj_5`, `unj_10`).
-- [ ] **`num_nonrel_judged_ret`** (`m_num_nonrel_judged_ret.c`): Total count of judged non-relevant documents retrieved.
+- [x] **`unj`** (`m_unjudged.c`): Number of unjudged retrieved documents (at specific cutoffs, e.g., `unj_5`, `unj_10`).
+- [x] **`num_nonrel_judged_ret`** (`m_num_nonrel_judged_ret.c`): Total count of judged non-relevant documents retrieved.
 
 ---
 
@@ -65,6 +65,6 @@ Agreement measures over multiple relevance judgment pools.
 ## 7. Modern & Specialized Measures
 Other specialized metrics.
 
-- [ ] **`rbp`** (`m_rbp.c`): Rank-Biased Precision.
-- [ ] **`rbp_resid`** (`m_rbp.c`): Rank-Biased Precision Residual (representing the maximum possible error due to unjudged docs).
-- [ ] **`yaap`** (`m_yaap.c`): Yet Another Average Precision.
+- [x] **`rbp`** (`m_rbp.c`): Rank-Biased Precision.
+- [x] **`rbp_resid`** (`m_rbp.c`): Rank-Biased Precision Residual (representing the maximum possible error due to unjudged docs).
+- [x] **`yaap`** (`m_yaap.c`): Yet Another Average Precision.

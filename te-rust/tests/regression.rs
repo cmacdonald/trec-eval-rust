@@ -261,3 +261,22 @@ fn test_regression_group_4() {
     );
 }
 
+#[test]
+fn test_regression_group_5_7() {
+    // 1. Standard cases
+    compare_outputs(
+        &["-q", "-m", "unj", "-m", "num_nonrel_judged_ret", "-m", "rbp", "-m", "rbp_resid", "-m", "yaap"],
+        &["-q", "-m", "unj", "-m", "num_nonrel_judged_ret", "-m", "rbp", "-m", "rbp_resid", "-m", "yaap"],
+        "qrels.test",
+        "results.test",
+    );
+
+    // 2. Parameterized cases
+    compare_outputs(
+        &["-q", "-m", "unj.5,15", "-m", "rbp.p=0.95", "-m", "rbp_resid.p=0.95"],
+        &["-q", "-m", "unj.5,15", "-m", "rbp.p=0.95", "-m", "rbp_resid.p=0.95"],
+        "qrels.test",
+        "results.test",
+    );
+}
+

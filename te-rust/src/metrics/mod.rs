@@ -26,6 +26,11 @@ pub mod iprec_at_recall;
 pub mod gm_map;
 pub mod gm_bpref;
 pub mod infap;
+pub mod unj;
+pub mod num_nonrel_judged_ret;
+pub mod rbp;
+pub mod rbp_resid;
+pub mod yaap;
 
 use crate::eval::QueryEvalState;
 
@@ -174,5 +179,10 @@ pub fn get_measures_for_all_trec() -> Vec<Box<dyn Measure>> {
         Box::new(gm_map::GMMapMeasure::default()),
         Box::new(gm_bpref::GMBprefMeasure::default()),
         Box::new(infap::InfAPMeasure::default()),
+        Box::new(unj::UnjMeasure::default()),
+        Box::new(num_nonrel_judged_ret::NumNonrelJudgedRetMeasure::default()),
+        Box::new(rbp::RbpMeasure::default()),
+        Box::new(rbp_resid::RbpResidMeasure::default()),
+        Box::new(yaap::YaapMeasure::default()),
     ]
 }

@@ -92,6 +92,11 @@ fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
         Box::new(metrics::gm_map::GMMapMeasure::new()),
         Box::new(metrics::gm_bpref::GMBprefMeasure::new()),
         Box::new(metrics::infap::InfAPMeasure::new()),
+        Box::new(metrics::unj::UnjMeasure::new(vec![])),
+        Box::new(metrics::num_nonrel_judged_ret::NumNonrelJudgedRetMeasure::new()),
+        Box::new(metrics::rbp::RbpMeasure::new(0.9, "")),
+        Box::new(metrics::rbp_resid::RbpResidMeasure::new(0.9, "")),
+        Box::new(metrics::yaap::YaapMeasure::new()),
     ];
 
     if help_measures {
@@ -459,6 +464,66 @@ fn main() {
             }
             "infAP" => {
                 active_measures.push(Box::new(metrics::infap::InfAPMeasure::new()));
+            }
+            "unj" => {
+                let cutoffs = if params_str.is_empty() {
+                    vec![5, 10, 20]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<usize>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::unj::UnjMeasure::new(cutoffs)));
+            }
+            "num_nonrel_judged_ret" => {
+                active_measures.push(Box::new(metrics::num_nonrel_judged_ret::NumNonrelJudgedRetMeasure::new()));
+            }
+            "rbp" => {
+                let mut p = 0.9;
+                if !params_str.is_empty() {
+                    for part in params_str.split(',') {
+                        let subparts: Vec<&str> = part.split('=').collect();
+                        if subparts.len() == 2 && subparts[0].trim() == "p" {
+                            match subparts[1].trim().parse::<f64>() {
+                                Ok(v) => p = v,
+                                Err(_) => {
+                                    eprintln!("te-rust: Invalid float parameter '{}' in measure '{}'", params_str, name);
+                                    process::exit(1);
+                                }
+                            }
+                        }
+                    }
+                }
+                active_measures.push(Box::new(metrics::rbp::RbpMeasure::new(p, params_str)));
+            }
+            "rbp_resid" => {
+                let mut p = 0.9;
+                if !params_str.is_empty() {
+                    for part in params_str.split(',') {
+                        let subparts: Vec<&str> = part.split('=').collect();
+                        if subparts.len() == 2 && subparts[0].trim() == "p" {
+                            match subparts[1].trim().parse::<f64>() {
+                                Ok(v) => p = v,
+                                Err(_) => {
+                                    eprintln!("te-rust: Invalid float parameter '{}' in measure '{}'", params_str, name);
+                                    process::exit(1);
+                                }
+                            }
+                        }
+                    }
+                }
+                active_measures.push(Box::new(metrics::rbp_resid::RbpResidMeasure::new(p, params_str)));
+            }
+            "yaap" => {
+                active_measures.push(Box::new(metrics::yaap::YaapMeasure::new()));
             }
             other => {
                 eprintln!("te-rust: Unknown measure '{}'", other);
