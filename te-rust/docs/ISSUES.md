@@ -6,6 +6,26 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Active Issues
 
+### 26. Cutoffs in measure initialization
+**Type**: bug
+**Status**: new
+**Description**: The cutoff parsing code is repeated across a bunch of measures in main.rs. Make a single cutoff arg parser, and make all the cutoff metrics use it.
+
+### 25. main.rs is a mess
+**Type**: bug
+**Status**: new
+**Description**: I don't know a nice way to say it. There is boilerplate code for measure initialization, the measure lists are enormous, it's just a mess. We have got to be able to make this cleaner.
+
+### 24. Measures can be production, experimental, or obsolete
+**Type**: feature
+**Status**: new
+**Description**: Really, some of the measures in trec_eval shouldn't be used without special care. There are a number of experimental metrics whose raison d'etre is long gone. There are metrics that are just obsolete. I want to be able to mark measures with a status, in the code with the measure.
+
+### 23. Help text needs to be more helpful
+**Type**: bug
+**Status**: new
+**Description**: The help text for measures defines the measure, but it doesn't tell you how to use it. The help should tell you how to add it to the set of measures computed, and it should tell you about any options like cutoffs or gain values that it takes.
+
 ### 22. Confidence intervals
 **Type**: feature
 **Status**: new
