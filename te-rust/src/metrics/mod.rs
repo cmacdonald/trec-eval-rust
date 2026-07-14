@@ -19,6 +19,10 @@ pub mod set_relative_p;
 pub mod set_map;
 pub mod set_f;
 pub mod g;
+pub mod map_cut;
+pub mod relative_p;
+pub mod rprec_mult;
+pub mod iprec_at_recall;
 
 use crate::eval::QueryEvalState;
 
@@ -155,5 +159,9 @@ pub fn get_measures_for_all_trec() -> Vec<Box<dyn Measure>> {
         Box::new(set_map::SetMapMeasure::new()),
         Box::new(set_f::SetFMeasure::new(1.0, "")),
         Box::new(g::GMeasure::new("")),
+        Box::new(map_cut::MapCutMeasure::default()),
+        Box::new(relative_p::RelativePMeasure::default()),
+        Box::new(rprec_mult::RprecMultMeasure::default()),
+        Box::new(iprec_at_recall::IprecAtRecallMeasure::default()),
     ]
 }

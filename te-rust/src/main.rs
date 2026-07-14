@@ -85,6 +85,10 @@ fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
         Box::new(metrics::avg_11pt::Avg11PtMeasure::new(vec![], "")),
         Box::new(metrics::utility::UtilityMeasure::new(vec![0.0, 0.0, 0.0, 0.0], "")),
         Box::new(metrics::relstring::RelstringMeasure::new(0, "")),
+        Box::new(metrics::map_cut::MapCutMeasure::new(vec![])),
+        Box::new(metrics::relative_p::RelativePMeasure::new(vec![])),
+        Box::new(metrics::rprec_mult::RprecMultMeasure::new(vec![])),
+        Box::new(metrics::iprec_at_recall::IprecAtRecallMeasure::new(vec![])),
     ];
 
     if help_measures {
@@ -371,6 +375,78 @@ fn main() {
                     }
                 };
                 active_measures.push(Box::new(metrics::relstring::RelstringMeasure::new(len, params_str)));
+            }
+            "map_cut" => {
+                let cutoffs = if params_str.is_empty() {
+                    vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<usize>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::map_cut::MapCutMeasure::new(cutoffs)));
+            }
+            "relative_P" => {
+                let cutoffs = if params_str.is_empty() {
+                    vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<usize>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::relative_p::RelativePMeasure::new(cutoffs)));
+            }
+            "Rprec_mult" => {
+                let cutoffs = if params_str.is_empty() {
+                    vec![0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<f64>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid float cutoff '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::rprec_mult::RprecMultMeasure::new(cutoffs)));
+            }
+            "iprec_at_recall" => {
+                let cutoffs = if params_str.is_empty() {
+                    vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+                } else {
+                    let mut list = Vec::new();
+                    for s in params_str.split(',') {
+                        match s.trim().parse::<f64>() {
+                            Ok(v) => list.push(v),
+                            Err(_) => {
+                                eprintln!("te-rust: Invalid float cutoff '{}' in measure '{}'", s, name);
+                                process::exit(1);
+                            }
+                        }
+                    }
+                    list
+                };
+                active_measures.push(Box::new(metrics::iprec_at_recall::IprecAtRecallMeasure::new(cutoffs)));
             }
             other => {
                 eprintln!("te-rust: Unknown measure '{}'", other);

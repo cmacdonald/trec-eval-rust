@@ -241,3 +241,13 @@ fn test_regression_relstring_query_level() {
     );
 }
 
+#[test]
+fn test_regression_group_3() {
+    compare_outputs(
+        &["-m", "map_cut", "-m", "relative_P", "-m", "Rprec_mult", "-m", "iprec_at_recall"],
+        &["-m", "map_cut", "-m", "relative_P", "-m", "Rprec_mult", "-m", "iprec_at_recall"],
+        "qrels.test",
+        "results.test",
+    );
+}
+

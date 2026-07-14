@@ -18,7 +18,7 @@ Set-based measures evaluate unranked retrieved sets (often using the `-M` parame
 ## 2. Cumulative Gain & NDCG Variants
 Measures based on cumulated relevance grade gains, including non-standard NDCG versions.
 
-- [ ] **`G`** (`m_G.c`): Cumulated Gain at various ranks (no discounting).
+- [x] **`G`** (`m_G.c`): Cumulated Gain at various ranks (no discounting).
 - [ ] **`binG`** (`m_binG.c`): Binary Cumulated Gain (gains are binary relevance grades).
 - [ ] **`ndcg_rel`** (`m_ndcg_rel.c`): Graded NDCG relative (normalizes by ideal gain achievable by retrieved set size, rather than the entire corpus relevance pool).
 - [ ] **`Rndcg`** (`m_Rndcg.c`): NDCG evaluated at rank $R$ (number of relevant documents).
@@ -29,10 +29,10 @@ Measures based on cumulated relevance grade gains, including non-standard NDCG v
 ## 3. Dynamic Cutoff & Precision Variants
 Precision-at-cutoff variations.
 
-- [ ] **`map_cut`** (`m_map_cut.c`): Mean Average Precision at specific cutoff rank thresholds.
-- [ ] **`relative_P`** (`m_rel_P.c`): Relative Precision at cutoffs (precision at cutoff divided by max possible precision at that cutoff).
-- [ ] **`Rprec_mult`** (`m_Rprec_mult.c`): R-precision multiple at cutoffs (evaluates at multiples of $R$, e.g., $2R$, $0.5R$).
-- [ ] **`iprec_at_recall`** (`m_iprec_at_recall.c`): Interpolated Precision at 11 standard recall points (`0.00`, `0.10`, ..., `1.00`).
+- [x] **`map_cut`** (`m_map_cut.c`): Mean Average Precision at specific cutoff rank thresholds.
+- [x] **`relative_P`** (`m_rel_P.c`): Relative Precision at cutoffs (precision at cutoff divided by max possible precision at that cutoff).
+- [x] **`Rprec_mult`** (`m_Rprec_mult.c`): R-precision multiple at cutoffs (evaluates at multiples of $R$, e.g., $2R$, $0.5R$).
+- [x] **`iprec_at_recall`** (`m_iprec_at_recall.c`): Interpolated Precision at 11 standard recall points (`0.00`, `0.10`, ..., `1.00`).
 
 ---
 
