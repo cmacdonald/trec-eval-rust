@@ -97,6 +97,10 @@ fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
         Box::new(metrics::rbp::RbpMeasure::new(0.9, "")),
         Box::new(metrics::rbp_resid::RbpResidMeasure::new(0.9, "")),
         Box::new(metrics::yaap::YaapMeasure::new()),
+        Box::new(metrics::bin_g::BinGMeasure::new()),
+        Box::new(metrics::ndcg_rel::NdcgRelMeasure::new("")),
+        Box::new(metrics::rndcg::RndcgMeasure::new("")),
+        Box::new(metrics::ndcg_p::NdcgPMeasure::new("")),
     ];
 
     if help_measures {
@@ -524,6 +528,18 @@ fn main() {
             }
             "yaap" => {
                 active_measures.push(Box::new(metrics::yaap::YaapMeasure::new()));
+            }
+            "binG" => {
+                active_measures.push(Box::new(metrics::bin_g::BinGMeasure::new()));
+            }
+            "ndcg_rel" => {
+                active_measures.push(Box::new(metrics::ndcg_rel::NdcgRelMeasure::new(params_str)));
+            }
+            "Rndcg" => {
+                active_measures.push(Box::new(metrics::rndcg::RndcgMeasure::new(params_str)));
+            }
+            "ndcg_p" => {
+                active_measures.push(Box::new(metrics::ndcg_p::NdcgPMeasure::new(params_str)));
             }
             other => {
                 eprintln!("te-rust: Unknown measure '{}'", other);

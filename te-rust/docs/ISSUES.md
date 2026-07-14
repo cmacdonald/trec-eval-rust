@@ -14,7 +14,7 @@ This document tracks active design questions, structural decisions, and implemen
 ### 25. main.rs is a mess
 **Type**: bug
 **Status**: new
-**Description**: I don't know a nice way to say it. There is boilerplate code for measure initialization, the measure lists are enormous, it's just a mess. We have got to be able to make this cleaner.
+**Description**: The cutoff parsing is duplicated over lots of measures... all option parsing for all metrics needs to happen in the metric code itself, and if there are common options, then there should be a single function they all use to do that parsing. Look at trec_eval/measures.c and how the measures are declared, then lists of measures like "off_names" and "all_trec" can be defined using names. We should be able to do something similarly simple. The main goal here is to remove duplicated code, delegate measure-specific work and init to the measure code, and make the entry point simple.
 
 ### 24. Measures can be production, experimental, or obsolete
 **Type**: feature

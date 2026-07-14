@@ -19,10 +19,10 @@ Set-based measures evaluate unranked retrieved sets (often using the `-M` parame
 Measures based on cumulated relevance grade gains, including non-standard NDCG versions.
 
 - [x] **`G`** (`m_G.c`): Cumulated Gain at various ranks (no discounting).
-- [ ] **`binG`** (`m_binG.c`): Binary Cumulated Gain (gains are binary relevance grades).
-- [ ] **`ndcg_rel`** (`m_ndcg_rel.c`): Graded NDCG relative (normalizes by ideal gain achievable by retrieved set size, rather than the entire corpus relevance pool).
-- [ ] **`Rndcg`** (`m_Rndcg.c`): NDCG evaluated at rank $R$ (number of relevant documents).
-- [ ] **`ndcg_p`** (`m_ndcg_p.c`): NDCG parameter-based / custom gain version.
+- [x] **`binG`** (`m_binG.c`): Binary Cumulated Gain (gains are binary relevance grades).
+- [x] **`ndcg_rel`** (`m_ndcg_rel.c`): Graded NDCG relative (normalizes by ideal gain achievable by retrieved set size, rather than the entire corpus relevance pool).
+- [x] **`Rndcg`** (`m_Rndcg.c`): NDCG evaluated at rank $R$ (number of relevant documents).
+- [x] **`ndcg_p`** (`m_ndcg_p.c`): NDCG parameter-based / custom gain version.
 
 ---
 

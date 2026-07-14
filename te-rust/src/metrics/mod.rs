@@ -31,6 +31,10 @@ pub mod num_nonrel_judged_ret;
 pub mod rbp;
 pub mod rbp_resid;
 pub mod yaap;
+pub mod bin_g;
+pub mod ndcg_rel;
+pub mod rndcg;
+pub mod ndcg_p;
 
 use crate::eval::QueryEvalState;
 
@@ -184,5 +188,9 @@ pub fn get_measures_for_all_trec() -> Vec<Box<dyn Measure>> {
         Box::new(rbp::RbpMeasure::default()),
         Box::new(rbp_resid::RbpResidMeasure::default()),
         Box::new(yaap::YaapMeasure::default()),
+        Box::new(bin_g::BinGMeasure::default()),
+        Box::new(ndcg_rel::NdcgRelMeasure::default()),
+        Box::new(rndcg::RndcgMeasure::default()),
+        Box::new(ndcg_p::NdcgPMeasure::default()),
     ]
 }
