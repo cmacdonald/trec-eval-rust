@@ -77,7 +77,7 @@ impl Measure for NdcgPMeasure {
                 let mut cur_level = gains.rel_gains.len() as i64 - 1;
                 let mut num_at_level = 0;
 
-                for i in 0..gains.total_num_at_levels {
+                for i in 0..gains._total_num_at_levels {
                     num_at_level += 1;
                     while cur_level >= 0 && num_at_level > gains.rel_gains[cur_level as usize].num_at_level {
                         num_at_level = 1;
