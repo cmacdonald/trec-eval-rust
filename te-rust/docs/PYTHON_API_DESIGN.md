@@ -160,7 +160,6 @@ We split the significance testing pipeline to maximize speed and analytical flex
    - Computes aligned topic score vectors with deterministic ordering and zero-fill for missing topics.
    - Calculates raw test statistics and unadjusted p-values:
      - **Paired Student's t-test**: Fast parametric test for mean differences.
-     - **Wilcoxon Signed-Rank Test**: Non-parametric test for median ranking differences.
      - **Randomized Permutation / Fisher Randomization Test**: Exact or Monte Carlo ($B=10{,}000$ to $100{,}000$ resamples) permutation test.
      - **Studentized Bootstrap**: Confidence intervals and bootstrap p-values.
    - **Parallel Batch Execution**: When evaluating $N$ runs ($\binom{N}{2}$ pairwise comparisons) across $M$ measures, Rust evaluates all $\binom{N}{2} \times M$ tests concurrently across CPU cores via Rayon in milliseconds.
@@ -347,7 +346,7 @@ To ensure compatibility with existing habits while providing modern ergonomics:
    - Users bridge custom classes/dataclasses using standard generator expressions: `((h.topic, h.docno, h.score) for h in hits)`.
 
 4. **Multi-Run Statistical Significance**:
-   - Multi-threaded paired testing in Rust (`t-test`, `wilcoxon`, Monte Carlo `permutation`, and `bootstrap`).
+   - Multi-threaded paired testing in Rust (`t-test`, Monte Carlo `permutation`, and `bootstrap`).
    - Multiple comparisons adjustments in pure Python with zero required dependencies:
      - Default grouping: **Per-measure family** (matches standard IR publications).
      - Default correction: **`holm`** (Holm-Bonferroni step-down), with support for `fdr_bh`, `bonferroni`, and `none`.
