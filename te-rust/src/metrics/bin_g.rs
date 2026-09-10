@@ -46,8 +46,11 @@ impl Measure for BinGMeasure {
                 for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
                     if rel >= config.relevance_level {
                         rel_so_far += 1;
-                        let num_nonrel = i - rel_so_far + 1;
-                        sum += 1.0 / ((3 + num_nonrel) as f64).log2();
+                        // Matches C: log2(3 + i - rel_so_far), i.e. 2 + (num nonrel retrieved
+                        // before this doc). Compute in signed arithmetic to avoid underflow when
+                        // the first document is relevant (i=0, rel_so_far=1 => arg = 2).
+                        let arg = 3 + i as i64 - rel_so_far as i64;
+                        sum += 1.0 / (arg as f64).log2();
                     }
                 }
 
