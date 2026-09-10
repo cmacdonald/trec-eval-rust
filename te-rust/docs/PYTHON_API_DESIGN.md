@@ -230,66 +230,115 @@ all = ["pandas", "numpy", "scipy", "polars", "pyarrow"]
 
 ---
 
-## 6. API Design & Migration Patterns
+## 6. API Design, Examples & Migration Patterns
 
-We propose a three-tiered API:
+### 6.1 Concrete In-Memory Dictionary Examples
 
-### 6.1 Tier 1: Modern Object-Oriented API (`trec_eval.Evaluator`)
-
-Designed for high efficiency when evaluating multiple runs against the same qrels (qrels parsed/indexed once in Rust):
-
-```python
-from trec_eval import Evaluator
-
-# Initialize evaluator with qrels (from file, dict, or DataFrame)
-evaluator = Evaluator(
-    qrels="path/to/qrels.txt",  # or qrels_dict, or qrels_df
-    measures=["map", "ndcg_cut.10", "P.5,10", "recip_rank"],
-    relevance_level=1,
-    judged_docs_only=False
-)
-
-# Evaluate a run (from file, dict, DataFrame, or custom object list)
-results = evaluator.evaluate(run)
-
-# Per-query and aggregate access
-print(results.aggregate())           # {"map": 0.42, "ndcg_cut_10": 0.58, ...}
-print(results.per_query())          # {"q1": {"map": 0.5, ...}, "q2": {...}}
-df = results.to_dataframe()         # Returns pandas DataFrame if pandas is installed
-```
-
-### 6.2 Tier 2: Convenient Functional API (`trec_eval.evaluate`)
-
-One-liner for ad-hoc evaluations:
+The primary API directly accepts standard nested dictionaries for `qrels` and `run`, making migration from existing scripts effortless.
 
 ```python
 import trec_eval
 
-res = trec_eval.evaluate(
-    qrels="qrels.txt",
-    run="run.txt",
-    measures=["map", "ndcg@10", "bpref"],
-    as_dataframe=False  # True to return DataFrame
-)
+# Relevance judgments (qrels): query_id -> {doc_id: relevance_score}
+qrels = {
+    "q1": {
+        "d1": 0,
+        "d2": 1,
+        "d3": 0,
+    },
+    "q2": {
+        "d2": 1,
+        "d3": 1,
+    },
+}
+
+# System run: query_id -> {doc_id: retrieval_score}
+run = {
+    "q1": {
+        "d1": 1.0,
+        "d2": 0.0,
+        "d3": 1.5,
+    },
+    "q2": {
+        "d1": 1.5,
+        "d2": 0.2,
+        "d3": 0.5,
+    },
+}
 ```
 
-### 6.3 Tier 3: Drop-in Compatibility Layer
-
-#### `pytrec_eval` Compatibility
-Users can migrate existing code by changing only the import:
+#### Example A: Object-Oriented Evaluator (`trec_eval.Evaluator`)
+Best when evaluating multiple runs against the same judgments (qrels are pre-indexed once in Rust):
 
 ```python
-# Existing code:
+from trec_eval import Evaluator
+
+# Initialize evaluator with qrels dict and desired measures
+evaluator = Evaluator(qrels, measures=["map", "ndcg@10", "P.5,10", "recip_rank"])
+
+# Evaluate run dictionary
+results = evaluator.evaluate(run)
+
+# Summary averages across queries:
+print(results.aggregate())
+# {
+#     "map": 0.4583333333333333,
+#     "ndcg_cut_10": 0.5967132018086354,
+#     "P_5": 0.1,
+#     "P_10": 0.1,
+#     "recip_rank": 0.5833333333333333
+# }
+
+# Per-query breakdown:
+print(results.per_query())
+# {
+#     "q1": {"map": 0.3333333333333333, "ndcg_cut_10": 0.5, "P_5": 0.2, "P_10": 0.1, "recip_rank": 0.3333333333333333},
+#     "q2": {"map": 0.5833333333333333, "ndcg_cut_10": 0.6934264036172708, "P_5": 0.2, "P_10": 0.2, "recip_rank": 1.0}
+# }
+
+# Dictionary-like indexing (backwards-compatible with pytrec_eval):
+print(results["q1"]["map"])  # 0.3333333333333333
+
+# Optional: export to Pandas DataFrame
+df = results.to_dataframe()
+```
+
+#### Example B: Quick Functional One-Liner (`trec_eval.evaluate`)
+Ideal for ad-hoc evaluations and interactive notebook sessions:
+
+```python
+import trec_eval
+
+# One-line evaluation from dictionaries
+results = trec_eval.evaluate(qrels, run, measures=["map", "ndcg@10", "recip_rank"])
+print(results.aggregate())
+```
+
+---
+
+### 6.2 Ecosystem Compatibility Layers
+
+#### `pytrec_eval` Drop-in Compatibility
+Existing scripts using `pytrec_eval` can switch to the Rust backend by changing only the import line:
+
+```python
+# Legacy code:
 # import pytrec_eval
-# New drop-in replacement:
+# Drop-in replacement:
 import trec_eval.compat.pytrec_eval as pytrec_eval
 
-evaluator = pytrec_eval.RelevanceEvaluator(qrels_dict, {"map", "ndcg"})
-res = evaluator.evaluate(run_dict)  # Exact same dict-of-dict structure and measure names
+evaluator = pytrec_eval.RelevanceEvaluator(qrels, {"map", "ndcg"})
+res = evaluator.evaluate(run)
+
+# Returns the exact pytrec_eval nested dictionary structure:
+# {
+#     "q1": {"map": 0.3333333333333333, "ndcg": 0.5},
+#     "q2": {"map": 0.5833333333333333, "ndcg": 0.6934264036172708}
+# }
 ```
 
 #### `ir_measures` Provider Integration
-`ir_measures` allows custom measure providers. We can expose an adapter that registers `te-rust` as an ultra-fast provider for `ir_measures`:
+`ir_measures` users can register the Rust backend for acceleration:
 
 ```python
 import ir_measures
