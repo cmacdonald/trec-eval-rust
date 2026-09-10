@@ -516,3 +516,75 @@ The Python project will include a unified, modern web documentation site (e.g. h
 
 6. **Web Documentation & Knowledge Base**:
    - Dedicated web documentation site covering the Python API, Rust CLI, scientific workflows, custom metric development, and an exhaustive mathematical catalog of all IR measures with edge cases and citations.
+
+---
+
+## 12. Staged Implementation Plan
+
+When implementing the Python package, work should be executed in well-scoped sequential stages:
+
+### Stage 1: Workspace Scaffolding & Core Rust Library Exposure
+- Create root `Cargo.toml` defining the workspace (`te-rust`, `te-python`).
+- Add `te-rust/src/lib.rs` to expose `eval`, `io`, and `metrics` modules.
+- Create `te-python/Cargo.toml` with `pyo3` and `maturin` dependencies.
+- Create `te-python/pyproject.toml` with build-system metadata and optional dependency extras.
+- Verify that `maturin develop` compiles a basic importable `trec_eval` Python module.
+
+### Stage 2: Core PyO3 Evaluator & EvalResult
+- Implement `Evaluator` PyClass in Rust wrapping `te_rust::metrics::EvalConfig` and pre-indexed `Qrels`.
+- Implement `EvalResult` PyClass supporting Python `Mapping` protocol (`__getitem__`, `__iter__`, `keys`, `values`, `items`, `to_dict()`).
+- Implement `.aggregate()` and `.per_query()` methods.
+- Implement `trec_eval.evaluate()` functional one-liner.
+
+### Stage 3: Canonical Ingestion Formats
+- Support file paths (`str`, `PathLike`).
+- Support nested dicts (`Dict[str, Dict[str, float]]`).
+- Support 3-tuples `(qid, doc_id, score)` and `ScoredDoc` namedtuples.
+- Implement DataFrame ingestion (Pandas / Polars) with column mapping kwargs.
+- Implement NumPy 1D array buffer ingestion (`evaluate_arrays`).
+- Implement `.to_dataframe(format="wide"|"tidy")` and `.to_numpy(measure)` outputs.
+
+### Stage 4: Multi-Run Statistical Significance & Corrections
+- Expose Rust-level pairwise paired tests (`paired_t`, `permutation`, `bootstrap`) with Rayon parallelization.
+- Implement pure-Python multiple comparisons correction engine (`holm`, `fdr_bh`, `bonferroni`).
+- Implement `res_a.compare(res_b)`, `evaluator.compare_against_baseline()`, and `evaluator.compare_all()`.
+
+### Stage 5: Custom Python Measures Extension Hook
+- Implement `trec_eval.Measure` base class and `QueryState` PyClass wrapper.
+- Implement `@trec_eval.register_measure` decorator.
+- Implement PyO3 callback invocation and exception sandboxing in the evaluation loop.
+
+### Stage 6: Ecosystem Compatibility Layers
+- Implement `trec_eval.compat.pytrec_eval` module with exact `RelevanceEvaluator` signature.
+- Implement `trec_eval.compat.ir_measures` provider adapter.
+
+### Stage 7: Web Documentation Site
+- Set up MkDocs Material / Sphinx documentation structure.
+- Document CLI reference, Python API, scientific workflows, custom measures, and measure catalog.
+
+---
+
+## 13. Testing & Quality Assurance Strategy
+
+In accordance with project workflow guidelines, **tests will be created, verified, and continuously maintained through each stage of implementation**. No stage or feature is considered complete until its corresponding unit and integration tests are written and passing.
+
+1. **Incremental Stage Testing**:
+   - Each implementation stage (Stages 1–7) includes dedicated unit tests verifying that stage's deliverables before advancing.
+   - Test suites are kept green and executed continuously as new features are added.
+
+2. **Numerical Parity Tests (`pytest`)**:
+   - Compare all evaluations computed via Python (`Evaluator`, dicts, DataFrames, arrays) directly against the compiled Rust CLI binary and legacy C `trec_eval` outputs on standard TREC test collections.
+   - Verify that all floating-point scores match to standard precision (numerical differences must be negligible or attributable to floating-point representation).
+
+3. **Compatibility Suite**:
+   - Run the existing test suites of `pytrec_eval` against `trec_eval.compat.pytrec_eval` to ensure 100% bug-for-bug behavioral compatibility.
+
+4. **Corner-Case & Boundary Tests**:
+   - Empty rankings (0 documents retrieved).
+   - Unjudged queries and queries with zero relevant documents.
+   - Rankings where no judged documents are present.
+   - Extreme floating point values (NaN, Inf) and ties in scores.
+
+5. **Memory & Concurrency Stress Tests**:
+   - Verify GIL release by evaluating runs across multiple Python worker threads simultaneously.
+   - Large-scale throughput benchmarks on runs with >1,000,000 scored documents.
