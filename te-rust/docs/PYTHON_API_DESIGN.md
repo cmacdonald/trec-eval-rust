@@ -71,58 +71,56 @@ trec-eval-rust/
 
 ---
 
-## 4. Input Data Ingestion & Bridging Python Objects
+## 4. Input Data Ingestion & Canonical Formats
 
-A critical bottleneck in existing tools like `pytrec_eval` is the FFI boundary: converting Python dicts of dicts into C/Rust data structures requires traversing millions of Python heap objects, creating substantial GC and serialization overhead.
-
-We design a multi-path ingestion engine in Rust:
+Rather than attempting magic attribute reflection or probing, the ingestion engine follows Python's standard explicit typing conventions (similar to `ir_measures` and `pandas`).
 
 ```mermaid
 flowchart TD
-    A[Input Data Source] --> B{Type Detection}
-    B -->|File Path / str / PathLike| C[Fast Rust Native Parser]
+    A[Input Data Source] --> B{Explicit Input Type}
+    B -->|File Path / str / PathLike| C[Rust Fast Native File Reader]
     B -->|Nested Dicts| D[Dict Ingestor: Dict[str, Dict[str, num]]]
-    B -->|Pandas / Polars / Arrow| E[Columnar / Arrow Ingestor]
-    B -->|Iterable of Objects / Tuples| F[Duck-Typing / Protocol Ingestor]
+    B -->|Pandas / Polars DataFrame| E[Columnar Ingestor: query_id, doc_id, score]
+    B -->|Iterable of Tuples / ScoredDoc| F[Tuple Stream: qid, doc_id, score]
+    B -->|NumPy 1D Arrays| G[Zero-Copy Buffer Ingestor]
     
-    C --> G[Internal Rust Qrels & Run Storage]
-    D --> G
-    E --> G
-    F --> G
-    
-    G --> H[Parallel Metric Computation Engine Rayon]
-    H --> I{Output Mode}
-    I -->|Dict| J[Nested Dict: query -> measure -> score]
-    I -->|Records| K[List of Metric objects]
-    I -->|DataFrame| L[Pandas / Polars DataFrame]
+    C --> H[Internal Rust Alignment & Storage]
+    D --> H
+    E --> H
+    F --> H
+    G --> H
 ```
 
-### 4.1 Ingestion Modes
+### 4.1 Canonical Input Formats
 
 1. **File Paths (`str` or `os.PathLike`)**:
    - Direct Rust file I/O using buffered readers.
-   - Bypasses Python interpreter completely; ideal for large TREC runs.
+   - Bypasses Python interpreter completely; optimal for large standard TREC files.
 
 2. **Nested Dictionaries (Legacy `pytrec_eval` compatibility)**:
    - `Dict[str, Dict[str, Union[int, float]]]`
-   - Direct iteration over Python dictionaries via PyO3 without full JSON intermediate serialization.
+   - Direct iteration over Python dictionaries via PyO3 without full intermediate JSON serialization.
 
-3. **Row Sequences / Iterables of Tuples**:
+3. **Iterables of 3-Tuples or `ScoredDoc` NamedTuples**:
    - `Iterable[Tuple[str, str, float]]` (e.g. `(query_id, doc_id, score)`)
-   - Low-overhead ingestion for custom Python database cursors or generators.
+   - Canonical `NamedTuple` definitions provided in `trec_eval`:
+     - `ScoredDoc = NamedTuple('ScoredDoc', [('query_id', str), ('doc_id', str), ('score', float)])`
+     - `Qrel = NamedTuple('Qrel', [('query_id', str), ('doc_id', str), ('relevance', int)])`
+   - **Bridging Custom User Classes**: Users bridge their arbitrary classes/dataclasses using standard generator expressions:
+     ```python
+     evaluator.evaluate((h.topic, h.docno, h.score) for h in my_search_hits)
+     ```
 
-4. **Arbitrary Python Objects / Classes (Duck Typing / Protocol)**:
-   - Supports custom classes (e.g. `SearchHit`, dataclasses, Pydantic models).
-   - Ingestor checks for expected attribute names via fast PyO3 attribute lookups:
-     - Query ID: `.query_id`, `.qid`, `.topic_id`, or `[0]`
-     - Document ID: `.doc_id`, `.docno`, `.document_id`, or `[1]` / `[2]`
-     - Score / Rank / Rel: `.score`, `.rank`, `.relevance`, `.rel`
-   - Alternatively, allow user-supplied extractor functions/lambdas:
-     `evaluator.evaluate(run_docs, qid_fn=lambda x: x.qid, doc_fn=lambda x: x.doc_id, score_fn=lambda x: x.score)`
+4. **DataFrames (Pandas / Polars)**:
+   - Default column names expected: `query_id`, `doc_id`, `score` (and `relevance` for qrels).
+   - Allows explicit column overrides if DataFrame column names differ:
+     ```python
+     evaluator.evaluate(df, qid="topic", docno="docno", score="similarity")
+     ```
 
-5. **DataFrames & Columnar Buffers (Zero / Low-Copy)**:
-   - Supports Pandas DataFrames, Polars DataFrames, and PyArrow Tables.
-   - Rust extracts pointers or contiguous column arrays (`query_id`, `doc_id`, `score`/`rel`) without converting individual rows into Python objects.
+5. **NumPy 1D Arrays (Zero-Copy Buffer Ingestion)**:
+   - `evaluator.evaluate_arrays(query_ids, doc_ids, scores)`
+   - Reads contiguous float slices directly from memory buffers with zero intermediate Python object allocations.
 
 ---
 
@@ -168,16 +166,16 @@ We split the significance testing pipeline to maximize speed and analytical flex
    - **Parallel Batch Execution**: When evaluating $N$ runs ($\binom{N}{2}$ pairwise comparisons) across $M$ measures, Rust evaluates all $\binom{N}{2} \times M$ tests concurrently across CPU cores via Rayon in milliseconds.
 
 2. **Python Layer (Multiple Comparisons Adjustments & Reporting)**:
-   - Ingests the matrix of raw p-values from Rust and applies multiple testing corrections:
-     - **FWER Control (Family-Wise Error Rate)**:
-       - `holm` (Holm-Bonferroni step-down) — *Recommended default: controls FWER with substantially higher power than standard Bonferroni*.
-       - `bonferroni` (Single-step Bonferroni $\alpha / m$).
-       - `hochberg` (Hochberg step-up procedure).
-       - `sidak` / `holm_sidak` (Exact Šidák adjustment under independence).
-     - **FDR Control (False Discovery Rate)**:
-       - `fdr_bh` (Benjamini-Hochberg) — *Standard for large-scale multi-run IR evaluations*.
-       - `fdr_by` (Benjamini-Yekutieli) — *FDR control under arbitrary dependence*.
-     - `none` — Raw unadjusted p-values.
+   - Ingests the matrix of raw p-values from Rust and applies multiple testing corrections.
+   - **Family Definition (Default: Option A - Per-Measure)**:
+     - Hypotheses are grouped per-measure (e.g. all pairwise system comparisons for `map` form one family, and `ndcg@10` form a separate family), matching standard IR publication conventions.
+     - An optional `family="global"` or `family="baseline"` can be specified by the user.
+   - **Supported Adjustment Methods (in order of recommendation)**:
+     1. `holm` (**Holm-Bonferroni step-down, Default**): Strongly controls Family-Wise Error Rate (FWER) $\le \alpha$ with substantially higher statistical power than single-step Bonferroni without assuming independence.
+     2. `fdr_bh` (**Benjamini-Hochberg**): Controls False Discovery Rate (FDR); optimal for large multi-run benchmark screening.
+     3. `bonferroni` (**Single-step Bonferroni** $\alpha / m$): Conservative classical FWER control.
+     4. `none`: Raw unadjusted p-values.
+   - **Zero-Dependency Implementation**: The adjustment algorithms are implemented directly in standard Python with no required dependencies (and can integrate with `scipy` or `statsmodels` if available).
 
 #### 5.4.2 Python Multi-Run Comparison API
 
@@ -330,19 +328,25 @@ To ensure compatibility with existing habits while providing modern ergonomics:
 
 ---
 
-## 9. Design Trade-Offs & Questions for Discussion
+## 9. Summary of Resolved Design Decisions
 
-### 9.1 Evaluation Output Structure
-- **Option A (pytrec_eval style)**: Return raw nested dict `{qid: {meas: val}}` and separate summary.
-- **Option B (Result Object wrapper)**: Return a rich `EvalResult` object that implements `dict` indexing (for backwards compatibility) but also provides `.aggregate()`, `.per_query()`, `.to_dataframe()`, and `.to_dict()`.
-- *Recommendation*: Option B gives full backward compatibility via mapping protocols while enabling clean DataFrame and method access.
+1. **Workspace & Packaging**:
+   - Cargo workspace with two parallel crates: `te-rust` (core engine & standalone CLI binary) and `te-python` (PyO3 bindings & Maturin packaging).
+   - Top-level Python module name: `trec_eval` (`import trec_eval`).
+   - PyPI distribution name: `trec-eval` (with optional extras `[pandas]`, `[all]`).
 
-### 9.2 Custom Python Object Extraction
-- **Option A**: Inspect object attributes via fixed standard names (`.query_id`, `.doc_id`, `.score`).
-- **Option B**: Support custom accessor callbacks / lambdas passed to `evaluate(run, qid_getter=..., ...)`.
-- **Option C**: Support both (try standard attributes first, allow custom getters if specified).
-- *Recommendation*: Option C provides maximum convenience out-of-the-box and full flexibility for idiosyncratic classes.
+2. **Evaluation Return Type**:
+   - `evaluator.evaluate(run)` returns a rich `EvalResult` implementing `collections.abc.Mapping`.
+   - Legacy dict indexing (`res["q1"]["map"]`), iteration, and `dict(res)` work out of the box.
+   - Provides native methods: `.aggregate()`, `.per_query()`, `.to_dataframe(format="wide"|"tidy")`, `.to_numpy(measure)`, and `.compare(other_res)`.
+   - Full configuration switches supported: `relevance_level` (`-l`), `complete_set_average` (`-c`), `judged_docs_only` (`-J`), `max_docs_per_topic` (`-M`), `num_docs_in_coll` (`-N`), and `global_gains`.
 
-### 9.3 Package Naming on PyPI
-- Existing names in the ecosystem: `pytrec_eval`, `pytrec_eval_terrier`, `trectools`, `ir_measures`.
-- Potential candidate package names: `trec-eval`, `te-rust`, `pytrec-eval-rust`.
+3. **Input Ingestion & Object Bridging**:
+   - Canonical formats model: File paths, nested dicts, Pandas/Polars DataFrames, iterables of 3-tuples `(qid, doc_id, score)`, canonical `ScoredDoc` namedtuples, and 1D NumPy arrays.
+   - Users bridge custom classes/dataclasses using standard generator expressions: `((h.topic, h.docno, h.score) for h in hits)`.
+
+4. **Multi-Run Statistical Significance**:
+   - Multi-threaded paired testing in Rust (`t-test`, `wilcoxon`, Monte Carlo `permutation`, and `bootstrap`).
+   - Multiple comparisons adjustments in pure Python with zero required dependencies:
+     - Default grouping: **Per-measure family** (matches standard IR publications).
+     - Default correction: **`holm`** (Holm-Bonferroni step-down), with support for `fdr_bh`, `bonferroni`, and `none`.
