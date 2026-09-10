@@ -331,6 +331,7 @@ To ensure compatibility with existing habits while providing modern ergonomics:
 ## 9. Summary of Resolved Design Decisions
 
 1. **Workspace & Packaging**:
+   - Target Release Version: **`11.0.0`** (succeeding `trec_eval 10.x`).
    - Cargo workspace with two parallel crates: `te-rust` (core engine & standalone CLI binary) and `te-python` (PyO3 bindings & Maturin packaging).
    - Top-level Python module name: `trec_eval` (`import trec_eval`).
    - PyPI distribution name: `trec-eval` (with optional extras `[pandas]`, `[all]`).
