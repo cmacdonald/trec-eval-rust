@@ -376,11 +376,88 @@ To ensure compatibility with existing habits while providing modern ergonomics:
 
 ---
 
-## 9. Web Documentation & Knowledge Base
+## 9. Custom Python Measures & Extension Hooks
+
+Researchers frequently prototype new evaluation measures (novel rank-biased weights, task-specific gain functions, diversity metrics, user effort models). In legacy C `trec_eval`, adding a metric required modifying C code, recompiling, and maintaining a custom fork.
+
+`trec_eval 11` allows users to define custom measures in pure Python and pass them directly into the evaluation pipeline alongside built-in measures.
+
+### 9.1 Custom Measure Interface
+
+Users can define a measure either via class inheritance or functional decorators:
+
+#### Option A: Class-Based Measure (`trec_eval.Measure`)
+```python
+from trec_eval import Measure, QueryState
+
+class ReciprocalRankAtK(Measure):
+    """Custom user-defined reciprocal rank at cutoff k."""
+    def __init__(self, k: int = 10):
+        super().__init__(name=f"rr@{k}")
+        self.k = k
+
+    def calc_query(self, query: QueryState) -> float:
+        # query.relevances: list/array of relevance scores in ranked order
+        # query.num_rel: total relevant docs in collection for this query
+        # query.num_ret: total retrieved docs for this query
+        # query.doc_ids: list of retrieved doc IDs
+        for rank, rel in enumerate(query.relevances[:self.k], start=1):
+            if rel >= self.relevance_level:
+                return 1.0 / rank
+        return 0.0
+
+    def aggregate(self, scores: list[float]) -> float:
+        # Optional custom aggregation (default is standard arithmetic mean)
+        return sum(scores) / len(scores) if scores else 0.0
+```
+
+#### Option B: Functional Decorator (`@trec_eval.register_measure`)
+```python
+@trec_eval.register_measure(name="p_at_3")
+def precision_at_three(query: QueryState) -> float:
+    rel_count = sum(1 for r in query.relevances[:3] if r >= 1)
+    return rel_count / 3.0
+```
+
+### 9.2 Seamless Pipeline Integration
+
+Custom measures are passed directly in the `measures` list alongside standard built-in metric strings:
+
+```python
+evaluator = trec_eval.Evaluator(
+    qrels,
+    measures=[
+        "map",                      # Built-in Rust measure
+        "ndcg@10",                  # Built-in Rust measure
+        ReciprocalRankAtK(k=5),     # Custom Python class
+        precision_at_three,         # Custom Python function
+    ]
+)
+
+results = evaluator.evaluate(run)
+
+# Custom measures appear seamlessly in all outputs:
+print(results.aggregate())
+# {"map": 0.458, "ndcg_cut_10": 0.596, "rr@5": 0.583, "p_at_3": 0.166}
+
+# Custom measures appear as columns in DataFrames:
+df = results.to_dataframe()
+
+# Custom measures support statistical significance testing:
+comp = res_a.compare(res_b, measure="rr@5", test="permutation")
+```
+
+### 9.3 Execution & Error Handling Model
+1. **Parallelism & GIL Safety**: Built-in Rust metrics run in parallel with the GIL released. When evaluating custom Python measures, PyO3 acquires the GIL and passes a zero-copy `QueryState` view to the Python function.
+2. **Exception Sandboxing**: If a custom Python metric raises an exception (e.g. division by zero on a specific query), the error is caught and wrapped with topic context (`EvaluationError: Error in custom measure 'rr@5' on topic 'q42': ZeroDivisionError(...)`), preventing process crashes.
+
+---
+
+## 10. Web Documentation & Knowledge Base
 
 The Python project will include a unified, modern web documentation site (e.g. hosted on GitHub Pages or ReadTheDocs via MkDocs Material / Sphinx). This site will serve as the central reference for both the Python library and the underlying Rust CLI tool.
 
-### 9.1 Documentation Scope & Structure
+### 10.1 Documentation Scope & Structure
 
 1. **Getting Started & Quickstarts**:
    - Installation (`pip install trec-eval`, `cargo install trec-eval`).
@@ -390,6 +467,7 @@ The Python project will include a unified, modern web documentation site (e.g. h
 2. **Python API Reference**:
    - Complete reference for `trec_eval.Evaluator`, `trec_eval.evaluate()`, `EvalResult`, and type definitions (`ScoredDoc`, `Qrel`).
    - In-depth guides for **NumPy zero-copy ingestion**, **Pandas/Polars DataFrames**, and custom object streams.
+   - **Custom Measure Development Guide**: Step-by-step tutorial on implementing and publishing custom metrics.
    - **Multi-Run Statistical Significance Guide**: Practical tutorials on paired tests, permutation testing, and multiple comparison corrections (`holm`, `fdr_bh`).
 
 3. **Rust CLI Reference**:
@@ -408,7 +486,7 @@ The Python project will include a unified, modern web documentation site (e.g. h
 
 ---
 
-## 10. Summary of Resolved Design Decisions
+## 11. Summary of Resolved Design Decisions
 
 1. **Workspace & Packaging**:
    - Target Release Version: **`11.0.0`** (succeeding `trec_eval 10.x`).
@@ -426,11 +504,15 @@ The Python project will include a unified, modern web documentation site (e.g. h
    - Canonical formats model: File paths, nested dicts, Pandas/Polars DataFrames, iterables of 3-tuples `(qid, doc_id, score)`, canonical `ScoredDoc` namedtuples, and 1D NumPy arrays.
    - Users bridge custom classes/dataclasses using standard generator expressions: `((h.topic, h.docno, h.score) for h in hits)`.
 
-4. **Multi-Run Statistical Significance**:
+4. **Custom Python Measures**:
+   - First-class support for user-defined Python metrics (`trec_eval.Measure` base class or `@register_measure` decorator).
+   - Custom metrics participate fully in query evaluation, DataFrames, and statistical significance testing.
+
+5. **Multi-Run Statistical Significance**:
    - Multi-threaded paired testing in Rust (`t-test`, Monte Carlo `permutation`, and `bootstrap`).
    - Multiple comparisons adjustments in pure Python with zero required dependencies:
      - Default grouping: **Per-measure family** (matches standard IR publications).
      - Default correction: **`holm`** (Holm-Bonferroni step-down), with support for `fdr_bh`, `bonferroni`, and `none`.
 
-5. **Web Documentation & Knowledge Base**:
-   - Dedicated web documentation site covering the Python API, Rust CLI, scientific workflows, and an exhaustive mathematical catalog of all IR measures with edge cases and citations.
+6. **Web Documentation & Knowledge Base**:
+   - Dedicated web documentation site covering the Python API, Rust CLI, scientific workflows, custom metric development, and an exhaustive mathematical catalog of all IR measures with edge cases and citations.
