@@ -376,7 +376,39 @@ To ensure compatibility with existing habits while providing modern ergonomics:
 
 ---
 
-## 9. Summary of Resolved Design Decisions
+## 9. Web Documentation & Knowledge Base
+
+The Python project will include a unified, modern web documentation site (e.g. hosted on GitHub Pages or ReadTheDocs via MkDocs Material / Sphinx). This site will serve as the central reference for both the Python library and the underlying Rust CLI tool.
+
+### 9.1 Documentation Scope & Structure
+
+1. **Getting Started & Quickstarts**:
+   - Installation (`pip install trec-eval`, `cargo install trec-eval`).
+   - 5-minute quickstarts for Python notebook users, script writers, and CLI users.
+   - Migration guides from C `trec_eval 9.x/10.x`, `pytrec_eval`, and `ir_measures`.
+
+2. **Python API Reference**:
+   - Complete reference for `trec_eval.Evaluator`, `trec_eval.evaluate()`, `EvalResult`, and type definitions (`ScoredDoc`, `Qrel`).
+   - In-depth guides for **NumPy zero-copy ingestion**, **Pandas/Polars DataFrames**, and custom object streams.
+   - **Multi-Run Statistical Significance Guide**: Practical tutorials on paired tests, permutation testing, and multiple comparison corrections (`holm`, `fdr_bh`).
+
+3. **Rust CLI Reference**:
+   - Complete flag and argument guide (`-q`, `-n`, `-c`, `-l`, `-J`, `-M`, `-N`, `--global-gains`).
+   - Exit codes, pipeline chaining, and standard TREC file format specifications (6-column runs, 4-column qrels, preference formats).
+
+4. **Comprehensive Measure Catalog**:
+   - Detailed documentation for every supported evaluation measure:
+     - Mathematical definitions and formulas (rendered in KaTeX/MathJax).
+     - Parameterization and cutoff options (e.g., `ndcg_cut.10`, `P.5,10`, `map_cut.1000`).
+     - Edge-case handling (empty rankings, unjudged documents, zero-relevant queries).
+     - Theoretical background, historical references, and citing papers (e.g. Buckley & Voorhees for bpref, Järvelin & Kekäläinen for NDCG, Moffat & Zobel for RBP).
+
+5. **Automated Docstring & Syncing**:
+   - Python docstrings and typing stubs will be synchronized directly from the measure definitions and Rust doc comments to ensure documentation never drifts from the implementation.
+
+---
+
+## 10. Summary of Resolved Design Decisions
 
 1. **Workspace & Packaging**:
    - Target Release Version: **`11.0.0`** (succeeding `trec_eval 10.x`).
@@ -399,3 +431,6 @@ To ensure compatibility with existing habits while providing modern ergonomics:
    - Multiple comparisons adjustments in pure Python with zero required dependencies:
      - Default grouping: **Per-measure family** (matches standard IR publications).
      - Default correction: **`holm`** (Holm-Bonferroni step-down), with support for `fdr_bh`, `bonferroni`, and `none`.
+
+5. **Web Documentation & Knowledge Base**:
+   - Dedicated web documentation site covering the Python API, Rust CLI, scientific workflows, and an exhaustive mathematical catalog of all IR measures with edge cases and citations.
