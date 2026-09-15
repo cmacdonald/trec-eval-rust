@@ -67,13 +67,14 @@ struct Args {
 
 fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
     if help_measures {
-        println!("{:<15}\t{}", "Measure", "Description");
-        println!("--------------------------------------------------");
+        println!("{:<22} {:<13} {}", "Measure", "Status", "Description");
+        println!("{}", "-".repeat(70));
         for spec in metrics::registry::registry() {
             if let Ok(m) = (spec.factory)("") {
-                println!("{:<15}\t{}", m.name(), m.short_description());
+                println!("{:<22} {:<13} {}", m.name(), spec.status.label(), m.short_description());
             }
         }
+        println!("\nRequest measures with -m <name> (repeatable). See --help-measure <name> for details.");
         process::exit(0);
     }
 
@@ -81,7 +82,19 @@ fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
         for spec in metrics::registry::registry() {
             if spec.name.eq_ignore_ascii_case(target) {
                 if let Ok(m) = (spec.factory)("") {
+                    println!("{}", m.name());
+                    if !spec.status.label().is_empty() {
+                        println!("Status: {}", spec.status.label());
+                    }
+                    println!();
                     println!("{}", m.explanation());
+                    println!();
+                    // How to request it, and what parameters it accepts.
+                    if spec.usage.is_empty() {
+                        println!("Usage:  -m {}", m.name());
+                    } else {
+                        println!("Usage:  -m {}", spec.usage);
+                    }
                     process::exit(0);
                 }
             }
