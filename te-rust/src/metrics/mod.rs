@@ -159,39 +159,4 @@ pub trait Measure: Send + Sync {
     }
 }
 
-/// Instantiates and returns the exact standard set of 'all_trec' measures.
-pub fn get_measures_for_all_trec() -> Vec<Box<dyn Measure>> {
-    vec![
-        Box::new(runid::RunIdMeasure::new()),
-        Box::new(num_ret::NumRetMeasure::new()),
-        Box::new(num_rel::NumRelMeasure::new()),
-        Box::new(num_rel_ret::NumRelRetMeasure::new()),
-        Box::new(map::MapMeasure::new()),
-        Box::new(rprec::RprecMeasure::new()),
-        Box::new(recip_rank::RecipRankMeasure::new()),
-        Box::new(precision::PrecisionCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
-        Box::new(ndcg_cut::NdcgCutMeasure::new(vec![5, 10, 15, 20, 30, 100, 200, 500, 1000])),
-        Box::new(ndcg::NdcgMeasure::new("")),
-        Box::new(bpref::BprefMeasure::new()),
-        Box::new(set_relative_p::SetRelativePMeasure::new()),
-        Box::new(set_map::SetMapMeasure::new()),
-        Box::new(set_f::SetFMeasure::new(1.0, "")),
-        Box::new(g::GMeasure::new("")),
-        Box::new(map_cut::MapCutMeasure::default()),
-        Box::new(relative_p::RelativePMeasure::default()),
-        Box::new(rprec_mult::RprecMultMeasure::default()),
-        Box::new(iprec_at_recall::IprecAtRecallMeasure::default()),
-        Box::new(gm_map::GMMapMeasure::default()),
-        Box::new(gm_bpref::GMBprefMeasure::default()),
-        Box::new(infap::InfAPMeasure::default()),
-        Box::new(unj::UnjMeasure::default()),
-        Box::new(num_nonrel_judged_ret::NumNonrelJudgedRetMeasure::default()),
-        Box::new(rbp::RbpMeasure::default()),
-        Box::new(rbp_resid::RbpResidMeasure::default()),
-        Box::new(yaap::YaapMeasure::default()),
-        Box::new(bin_g::BinGMeasure::default()),
-        Box::new(ndcg_rel::NdcgRelMeasure::default()),
-        Box::new(rndcg::RndcgMeasure::default()),
-        Box::new(ndcg_p::NdcgPMeasure::default()),
-    ]
-}
+
