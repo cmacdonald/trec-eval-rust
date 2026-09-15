@@ -41,7 +41,7 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Status**: Resolved
 *   **Description**: Introduced a single measure registry in `metrics/registry.rs` (`MeasureSpec { name, status, factory }`), the direct analog of C `trec_eval`'s `te_trec_measures[]` table. Groups (`official`, `set`, `all_trec`) are name lists resolved against the table via `expand_group()`, and `resolve_measures()` turns requested `root[.params]` arguments into constructed measures with errors that name the offending argument. `main.rs` was cut over to call the registry for both `-m` handling and help output, dropping from ~690 to 271 lines; the ~380-line match, the duplicate help-flags list, and the now-dead `get_measures_for_all_trec()` were removed. All measure declaration and option parsing is delegated to the measure/registry code. Verified behavior-preserving by the full unit + regression suites.
 
-### 23. Standard Uncut NDCG and Cutoff Behavior Alignment
+### 27. Standard Uncut NDCG and Cutoff Behavior Alignment
 *   **Type**: Bug
 *   **Status**: Resolved
 *   **Description**: Audited and confirmed all 15 core measures' cutoff behavior. Discovered that the standard uncut `ndcg` measure (which evaluates dynamically to the end of both the retrieved ranking and the ideal relevance ranking) was missing from the registry. Implemented `ndcg` in `te-rust/src/metrics/ndcg.rs`, registered it in `metrics/mod.rs` and `main.rs`, and updated the regression tests to verify that both C and Rust align exactly on all evaluation runs.
