@@ -6,25 +6,10 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Active Issues
 
-### 26. Cutoffs in measure initialization
-**Type**: bug
+### 13. Enforcing Uniform Boundary Testing across all Metrics
+**Type**: Design
 **Status**: new
-**Description**: The cutoff parsing code is repeated across a bunch of measures in main.rs. Make a single cutoff arg parser, and make all the cutoff metrics use it.
-
-### 25. main.rs is a mess
-**Type**: bug
-**Status**: new
-**Description**: The cutoff parsing is duplicated over lots of measures... all option parsing for all metrics needs to happen in the metric code itself, and if there are common options, then there should be a single function they all use to do that parsing. Look at trec_eval/measures.c and how the measures are declared, then lists of measures like "off_names" and "all_trec" can be defined using names. We should be able to do something similarly simple. The main goal here is to remove duplicated code, delegate measure-specific work and init to the measure code, and make the entry point simple.
-
-### 24. Measures can be production, experimental, or obsolete
-**Type**: feature
-**Status**: new
-**Description**: Really, some of the measures in trec_eval shouldn't be used without special care. There are a number of experimental metrics whose raison d'etre is long gone. There are metrics that are just obsolete. I want to be able to mark measures with a status, in the code with the measure.
-
-### 23. Help text needs to be more helpful
-**Type**: bug
-**Status**: new
-**Description**: The help text for measures defines the measure, but it doesn't tell you how to use it. The help should tell you how to add it to the set of measures computed, and it should tell you about any options like cutoffs or gain values that it takes.
+**Description**: Implement an automated boundary checking suite (e.g. `tests/uniform_boundaries.rs`) that iterates the central measure registry (`metrics::registry::registry()`) and runs every registered standard measure against core boundary scenarios (empty ranking, zero-relevance topic, etc.). It should assert universal mathematical invariants (no non-finite values, standard float metrics defaulting safely to zero, integer counts defaulting to 0), guaranteeing coverage for all current and future measures automatically. Reopened after the registry refactor superseded the earlier `get_all_measures()` plan.
 
 ### 22. Confidence intervals
 **Type**: feature
@@ -36,7 +21,27 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Resolved Issues
 
-### 23. Standard Uncut NDCG and Cutoff Behavior Alignment
+### 24. Measures can be production, experimental, or obsolete
+*   **Type**: feature
+*   **Status**: Resolved
+*   **Description**: Added a `MeasureStatus` enum (`Production`, `Experimental`, `Obsolete`) carried per measure in the registry `MeasureSpec`. This is a new concept (C `trec_eval` had no measure statuses). Assigned statuses: `G`, `yaap`, `binG` are Experimental; everything else (including `rbp`/`rbp_resid`) is Production; no measures are currently Obsolete (variant retained for future use). Experimental measures are excluded from predefined groups (`official`/`set`/`all_trec`) — `G` was removed from `all_trec` — but remain requestable explicitly via `-m`. Status is shown in help output (#23). Added a registry invariant test that no group contains a non-production measure, and extended the regression suite to exercise `G` and `binG` against C (previously uncovered, since no test used `-m all_trec`).
+
+### 23. Help text needs to be more helpful
+*   **Type**: bug
+*   **Status**: Resolved
+*   **Description**: Added a `usage` field to `MeasureSpec` describing how to request each measure and the parameters/defaults it accepts (rank cutoffs, recall levels, gain mappings, utility coefficients, F beta, RBP persistence). `--help-measure <name>` now prints the measure name, its status, the explanation, and a `Usage:  -m <name>[.params]` line; `--help-measures` gained a Status column flagging experimental/obsolete measures. Added `MeasureStatus::label()` and a registry test asserting each non-empty usage line begins with its measure name.
+
+### 26. Cutoffs in measure initialization
+*   **Type**: bug
+*   **Status**: Resolved
+*   **Description**: Added shared parameter parsers in `metrics/common.rs` (`parse_int_cutoffs`, `parse_float_cutoffs`, `parse_key_values`, plus `MeasureParseError`). Every parameterized measure now parses its cutoffs/coefficients through these helpers via its registry factory, eliminating the ~15 copy-pasted parse loops that previously lived in `main.rs`. Resolved together with #25.
+
+### 25. main.rs is a mess
+*   **Type**: bug
+*   **Status**: Resolved
+*   **Description**: Introduced a single measure registry in `metrics/registry.rs` (`MeasureSpec { name, status, factory }`), the direct analog of C `trec_eval`'s `te_trec_measures[]` table. Groups (`official`, `set`, `all_trec`) are name lists resolved against the table via `expand_group()`, and `resolve_measures()` turns requested `root[.params]` arguments into constructed measures with errors that name the offending argument. `main.rs` was cut over to call the registry for both `-m` handling and help output, dropping from ~690 to 271 lines; the ~380-line match, the duplicate help-flags list, and the now-dead `get_measures_for_all_trec()` were removed. All measure declaration and option parsing is delegated to the measure/registry code. Verified behavior-preserving by the full unit + regression suites.
+
+### 27. Standard Uncut NDCG and Cutoff Behavior Alignment
 *   **Type**: Bug
 *   **Status**: Resolved
 *   **Description**: Audited and confirmed all 15 core measures' cutoff behavior. Discovered that the standard uncut `ndcg` measure (which evaluates dynamically to the end of both the retrieved ranking and the ideal relevance ranking) was missing from the registry. Implemented `ndcg` in `te-rust/src/metrics/ndcg.rs`, registered it in `metrics/mod.rs` and `main.rs`, and updated the regression tests to verify that both C and Rust align exactly on all evaluation runs.
@@ -114,11 +119,6 @@ This document tracks active design questions, structural decisions, and implemen
 *   **Status**: Resolved (Option A)
 *   **Description**: Resolved to create a standard `test_measure_boundaries!` macro in our test common module, coupled with a helper generator `make_mock_state`. This enables metrics to cleanly declare their own specific boundary condition matrices in a highly compact, data-driven way, completely eliminating duplicate mock state configuration and assertion loops.
 
-
-### 13. Enforcing Uniform Boundary Testing across all Metrics
-*   **Type**: Design
-*   **Status**: Resolved (Option A)
-*   **Description**: Resolved to implement an automated boundary checking suite inside `tests/uniform_boundaries.rs`. This suite automatically queries our central measure registry (`get_all_measures()`) and runs all registered standard measures against core boundary scenarios (e.g. empty ranking, zero-relevance topic). It asserts universal mathematical invariants (no non-finite values, standard float metrics defaulting safely to zero, integer counts defaulting to 0) dynamically, guaranteeing complete test coverage for all current and future metrics automatically.
 
 ### 14. Stateless `Measure` Trait vs. Parameter Mutation
 *   **Type**: Design
