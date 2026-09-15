@@ -588,3 +588,74 @@ In accordance with project workflow guidelines, **tests will be created, verifie
 5. **Memory & Concurrency Stress Tests**:
    - Verify GIL release by evaluating runs across multiple Python worker threads simultaneously.
    - Large-scale throughput benchmarks on runs with >1,000,000 scored documents.
+
+---
+
+## 14. Open Design Issues & Dependencies (Review Notes)
+
+The following items were surfaced while reviewing this document against the current `te-rust`
+codebase and `docs/ISSUES.md`. They are recorded here so the design can be reconciled with the
+core engine's already-resolved decisions before implementation begins. Each item notes the related
+ISSUES.md entry where applicable.
+
+### 14.1 Custom-measure `QueryState` collides with the doc-ID-free aligned state
+- **Where**: §9 (Custom Python Measures). The proposed `QueryState` exposes `query.doc_ids` and a
+  raw `query.relevances` list.
+- **Reality**: The core aligned state is `QueryEvalState` (`src/eval/alignment.rs`), whose contract
+  is `results_rel_list` (an `i64` array using sentinels `-1` non-pool / `-2` unjudged) plus
+  `rel_levels` counts. **Document IDs are intentionally dropped after alignment**, mirroring C's
+  `RES_RELS`. This is not an oversight — it is settled by ISSUES.md **#16** (native empty-state
+  evaluation) and **#17** (defensive `rel_levels` sizing), and the trait/state shape by **#10** and
+  **#14**.
+- **Decision needed**: Either (a) expose `QueryEvalState` to custom measures as-is (no doc IDs, raw
+  sentinel-encoded relevances), or (b) introduce a new opt-in aligned view that retains doc IDs for
+  custom measures only. Option (b) reopens #16/#17 and must be justified.
+
+### 14.2 Custom-measure `aggregate()` default bypasses centralized averaging
+- **Where**: §9.1 `aggregate()` defaults to arithmetic mean.
+- **Reality**: The `Measure` trait already centralizes averaging (`Measure::average`), including the
+  `-c` / `average_complete_flag` denominator switch (divide by `total_qrels_queries`) and
+  geometric-mean measures (`gm_map`, `gm_bpref`). Related: ISSUES.md **#14**.
+- **Decision needed**: Custom Python measures must plug into the existing averaging contract (honor
+  `-c`, allow non-arithmetic aggregation) rather than defining a parallel default.
+
+### 14.3 Preference measures are out of scope for Python v1 (blocked on core impl)
+- **Where**: §4 (Ingestion) models only `(qid, doc_id, score)` runs and `(qid, doc_id, relevance)`
+  qrels — no preference (prefs / qrels_prefs / jg) input path.
+- **Reality**: Preference evaluation is fully *designed* (ISSUES.md **#15**, `EVAL_DESIGN.md`:
+  `PrefsEvalState`, `JudgmentGroup`, `EquivalenceClass`, dual transitive-closure strategy) but
+  **not yet implemented** in `src/`. `EvalState` currently has only the `Standard` variant.
+- **Decision**: Scope Python v1 to standard (scored-run) evaluation. Python preference support is an
+  explicit downstream dependency on implementing #15 in the core. State this scope boundary in the
+  API docs so it is not mistaken for a permanent limitation.
+
+### 14.4 Significance testing should build on the planned bootstrap machinery
+- **Where**: §5.4 introduces t-test / permutation / bootstrap in Rust.
+- **Reality**: The core already plans bootstrap confidence intervals behind a switch for CLI
+  compatibility (ISSUES.md **#22**). This is the natural home for the resampling primitives.
+- **Decision**: Implement the Rust-side resampling once, shared between the CLI CI feature (#22) and
+  the Python significance layer. Note this is a *new capability* for the trec_eval lineage (the C
+  tool evaluates a single run with no inferential statistics), so it is additive, not parity work.
+
+### 14.5 Measure-name/alias parsing must be shared with the CLI, not duplicated
+- **Where**: §8 proposes `@`-cutoff aliases (`ndcg@10` → `ndcg_cut.10`) and case-insensitive names.
+- **Reality**: A single canonical measure-name + options parser is already an open CLI task
+  (ISSUES.md **#25** / **#26** — remove duplicated cutoff parsing, delegate option parsing to the
+  measure code). Both surfaces need the same parser.
+- **Decision**: Land the canonical parser in the core (resolving #25/#26) and have the Python layer
+  consume it. Do not add a second, Python-only measure-string parser.
+
+### 14.6 Illustrative example numbers must be computed, not hand-written
+- **Where**: §6.1 shows concrete aggregate/per-query values (e.g. `map = 0.4583…`) for the toy
+  qrels/run.
+- **Reality**: These were not produced by running the tool. The project's testing philosophy
+  (ISSUES.md **#6**, **#19**) makes real computed output the source of truth via epsilon-based
+  relational comparison.
+- **Decision**: Before publishing, either regenerate these numbers with the actual binary or clearly
+  label them as illustrative/non-authoritative.
+
+### 14.7 `EvalResult` indexing semantics are ambiguous
+- **Where**: §6.1 vs §11. `results["q1"]["map"]` (query-keyed, pytrec_eval-style) coexists with
+  `results.aggregate()` returning a flat measure dict.
+- **Decision needed**: Define a single `Mapping` key semantics for `EvalResult` (query-keyed is the
+  pytrec_eval-compatible choice), with aggregate/per-query exposed as explicit methods.
