@@ -263,10 +263,11 @@ fn test_regression_group_4() {
 
 #[test]
 fn test_regression_group_5_7() {
-    // 1. Standard cases
+    // 1. Standard cases (includes experimental measures G, binG, yaap, which are
+    //    excluded from groups but must still be verified against C trec_eval).
     compare_outputs(
-        &["-q", "-m", "unj", "-m", "num_nonrel_judged_ret", "-m", "rbp", "-m", "rbp_resid", "-m", "yaap"],
-        &["-q", "-m", "unj", "-m", "num_nonrel_judged_ret", "-m", "rbp", "-m", "rbp_resid", "-m", "yaap"],
+        &["-q", "-m", "unj", "-m", "num_nonrel_judged_ret", "-m", "rbp", "-m", "rbp_resid", "-m", "yaap", "-m", "G", "-m", "binG"],
+        &["-q", "-m", "unj", "-m", "num_nonrel_judged_ret", "-m", "rbp", "-m", "rbp_resid", "-m", "yaap", "-m", "G", "-m", "binG"],
         "qrels.test",
         "results.test",
     );

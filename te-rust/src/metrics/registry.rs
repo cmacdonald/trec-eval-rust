@@ -185,13 +185,13 @@ pub fn registry() -> &'static [MeasureSpec] {
         },
         MeasureSpec { name: "set_relative_P", status: Production, usage: "", factory: |_| Ok(Box::new(metrics::set_relative_p::SetRelativePMeasure::new())) },
         MeasureSpec { name: "set_map", status: Production, usage: "", factory: |_| Ok(Box::new(metrics::set_map::SetMapMeasure::new())) },
-        MeasureSpec { name: "G", status: Production, usage: "G[.<rel>=<gain>,...]  optional relevance-to-gain mapping (default: gain = relevance level)", factory: |p| Ok(Box::new(metrics::g::GMeasure::new(p))) },
+        MeasureSpec { name: "G", status: Experimental, usage: "G[.<rel>=<gain>,...]  optional relevance-to-gain mapping (default: gain = relevance level)", factory: |p| Ok(Box::new(metrics::g::GMeasure::new(p))) },
         MeasureSpec { name: "ndcg", status: Production, usage: "ndcg[.<rel>=<gain>,...]  optional relevance-to-gain mapping (default: gain = relevance level)", factory: |p| Ok(Box::new(metrics::ndcg::NdcgMeasure::new(p))) },
         MeasureSpec { name: "ndcg_rel", status: Production, usage: "ndcg_rel[.<rel>=<gain>,...]  optional relevance-to-gain mapping (default: gain = relevance level)", factory: |p| Ok(Box::new(metrics::ndcg_rel::NdcgRelMeasure::new(p))) },
         MeasureSpec { name: "Rndcg", status: Production, usage: "Rndcg[.<rel>=<gain>,...]  optional relevance-to-gain mapping (default: gain = relevance level)", factory: |p| Ok(Box::new(metrics::rndcg::RndcgMeasure::new(p))) },
         MeasureSpec { name: "ndcg_p", status: Production, usage: "ndcg_p[.<rel>=<gain>,...]  optional relevance-to-gain mapping (default: gain = relevance level)", factory: |p| Ok(Box::new(metrics::ndcg_p::NdcgPMeasure::new(p))) },
-        MeasureSpec { name: "rbp", status: Experimental, usage: "rbp[.p=<float>]  persistence parameter p (default: 0.9)", factory: |p| Ok(Box::new(metrics::rbp::RbpMeasure::new(parse_rbp_p(p)?, p))) },
-        MeasureSpec { name: "rbp_resid", status: Experimental, usage: "rbp_resid[.p=<float>]  persistence parameter p (default: 0.9)", factory: |p| Ok(Box::new(metrics::rbp_resid::RbpResidMeasure::new(parse_rbp_p(p)?, p))) },
+        MeasureSpec { name: "rbp", status: Production, usage: "rbp[.p=<float>]  persistence parameter p (default: 0.9)", factory: |p| Ok(Box::new(metrics::rbp::RbpMeasure::new(parse_rbp_p(p)?, p))) },
+        MeasureSpec { name: "rbp_resid", status: Production, usage: "rbp_resid[.p=<float>]  persistence parameter p (default: 0.9)", factory: |p| Ok(Box::new(metrics::rbp_resid::RbpResidMeasure::new(parse_rbp_p(p)?, p))) },
         MeasureSpec { name: "yaap", status: Experimental, usage: "", factory: |_| Ok(Box::new(metrics::yaap::YaapMeasure::new())) },
         MeasureSpec { name: "binG", status: Experimental, usage: "", factory: |_| Ok(Box::new(metrics::bin_g::BinGMeasure::new())) },
     ]
@@ -211,7 +211,7 @@ pub fn expand_group(name: &str) -> Option<&'static [&'static str]> {
         "all_trec" => Some(&[
             "runid", "num_ret", "num_rel", "num_rel_ret", "map", "Rprec", "recip_rank", "bpref", "P",
             "ndcg_cut", "ndcg", "recall", "success", "11pt_avg", "utility", "relstring",
-            "set_relative_P", "set_map", "set_F", "G",
+            "set_relative_P", "set_map", "set_F",
         ]),
         _ => None,
     }
@@ -269,6 +269,22 @@ mod tests {
                     "usage for '{}' should start with its name: {}",
                     spec.name,
                     spec.usage
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn groups_contain_only_production_measures() {
+        for group in ["official", "set", "all_trec"] {
+            for name in expand_group(group).unwrap() {
+                let spec = find_spec(name).unwrap_or_else(|| panic!("group '{}' names unknown measure '{}'", group, name));
+                assert_eq!(
+                    spec.status,
+                    MeasureStatus::Production,
+                    "group '{}' must not contain non-production measure '{}'",
+                    group,
+                    name
                 );
             }
         }
