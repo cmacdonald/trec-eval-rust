@@ -2,10 +2,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::process;
 
-mod io;
-pub mod eval;
-pub mod metrics;
-
+use te_rust::{eval, io, metrics};
 use io::{parse_trec_qrels, parse_trec_run, QrelsQuery, RunQuery};
 use eval::alignment::align_query;
 use metrics::{EvalConfig, EvalState, Measure, MetricValue, ValueFormat};
