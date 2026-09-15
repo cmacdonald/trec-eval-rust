@@ -81,16 +81,16 @@ mod tests {
     fn test_bing_standard() {
         let measure = BinGMeasure::new();
         let config = EvalConfig::default();
-        // retrieved: [1, 0, 1]. R=2.
-        // rank 1 (i=0): rel=1 >= 1. rel_so_far = 1. num_nonrel = 0 - 1 + 1 = 0. term = 1 / log2(3) = 1 / 1.58496 = 0.63092975
+        // retrieved: [1, 0, 1]. R=2. C formula: 1 / log2(3 + i - rel_so_far).
+        // rank 1 (i=0): rel=1 >= 1. rel_so_far = 1. num_nonrel before = 0. term = 1 / log2(2) = 1.0
         // rank 2 (i=1): rel=0.
-        // rank 3 (i=2): rel=1 >= 1. rel_so_far = 2. num_nonrel = 2 - 2 + 1 = 1. term = 1 / log2(4) = 0.5
-        // sum = 0.63092975 + 0.5 = 1.13092975
-        // score = sum / 2 = 0.565464875
+        // rank 3 (i=2): rel=1 >= 1. rel_so_far = 2. num_nonrel before = 1. term = 1 / log2(3) = 0.63092975
+        // sum = 1.0 + 0.63092975 = 1.63092975
+        // score = sum / 2 = 0.815464875
         let state = make_mock_state(vec![1, 0, 1], 2);
         let actual = measure.calc(&config, &EvalState::Standard(state));
         if let MetricValue::Float(v) = actual[0] {
-            assert!((v - 0.565464875).abs() < 1e-6);
+            assert!((v - 0.815464875).abs() < 1e-6);
         } else {
             panic!("Expected float value");
         }
