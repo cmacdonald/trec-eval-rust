@@ -11,11 +11,6 @@ This document tracks active design questions, structural decisions, and implemen
 **Status**: new
 **Description**: Implement an automated boundary checking suite (e.g. `tests/uniform_boundaries.rs`) that iterates the central measure registry (`metrics::registry::registry()`) and runs every registered standard measure against core boundary scenarios (empty ranking, zero-relevance topic, etc.). It should assert universal mathematical invariants (no non-finite values, standard float metrics defaulting safely to zero, integer counts defaulting to 0), guaranteeing coverage for all current and future measures automatically. Reopened after the registry refactor superseded the earlier `get_all_measures()` plan.
 
-### 24. Measures can be production, experimental, or obsolete
-**Type**: feature
-**Status**: new
-**Description**: Really, some of the measures in trec_eval shouldn't be used without special care. There are a number of experimental metrics whose raison d'etre is long gone. There are metrics that are just obsolete. I want to be able to mark measures with a status, in the code with the measure.
-
 ### 22. Confidence intervals
 **Type**: feature
 **Status**: new
@@ -25,6 +20,11 @@ This document tracks active design questions, structural decisions, and implemen
 ---
 
 ## Resolved Issues
+
+### 24. Measures can be production, experimental, or obsolete
+*   **Type**: feature
+*   **Status**: Resolved
+*   **Description**: Added a `MeasureStatus` enum (`Production`, `Experimental`, `Obsolete`) carried per measure in the registry `MeasureSpec`. This is a new concept (C `trec_eval` had no measure statuses). Assigned statuses: `G`, `yaap`, `binG` are Experimental; everything else (including `rbp`/`rbp_resid`) is Production; no measures are currently Obsolete (variant retained for future use). Experimental measures are excluded from predefined groups (`official`/`set`/`all_trec`) — `G` was removed from `all_trec` — but remain requestable explicitly via `-m`. Status is shown in help output (#23). Added a registry invariant test that no group contains a non-production measure, and extended the regression suite to exercise `G` and `binG` against C (previously uncovered, since no test used `-m all_trec`).
 
 ### 23. Help text needs to be more helpful
 *   **Type**: bug
