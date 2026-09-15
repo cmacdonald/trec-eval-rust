@@ -35,6 +35,7 @@ pub mod bin_g;
 pub mod ndcg_rel;
 pub mod rndcg;
 pub mod ndcg_p;
+pub mod registry;
 
 use crate::eval::QueryEvalState;
 
