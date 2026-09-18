@@ -6,14 +6,15 @@ publish = false
 
 [lib]
 name = "_trec_eval"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.22", features = ["abi3-py38"] }
 te-rust = { path = "../te-rust" }
 
 [features]
-default = ["extension-module"]
-extension-module = ["pyo3/extension-module", "pyo3/abi3-py38"]
+default = []
+extension-module = ["pyo3/extension-module"]
+
 
 
