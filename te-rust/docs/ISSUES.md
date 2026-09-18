@@ -6,15 +6,17 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Active Issues
 
-### 22. Confidence intervals
-**Type**: feature
-**Status**: new
-**Description**: Add confidence intervals to the averages output. These intervals can be computed using simple bootstrap confidence intervals. The output will gain one or two new fields to display it. This should be enabled with a switch, for compatibility with trec_eval.
+(None currently active)
 
 
 ---
 
 ## Resolved Issues
+
+### 22. Confidence intervals
+*   **Type**: feature
+*   **Status**: Resolved
+*   **Description**: Implemented percentile bootstrap confidence intervals for summary metrics over evaluated queries, with zero heavy external dependencies (built on a lightweight, seedable SplitMix64 PRNG). Resampling core is implemented in `src/eval/bootstrap.rs` supporting both standard arithmetic mean aggregation and geometric-mean log transforms (`gm_map`, `gm_bpref`), serving as the shared foundation for both CLI and the future Python bindings. Enabled via `-C / --ci` which preserves the strict 3-column relational format (`<measure>_ci_lower` and `<measure>_ci_upper` summary rows) for compatibility with Unix and TREC relational tools, while human-readable bracketed output `[lower, upper]` is supported via `--ci-pretty`. Configurable via `--ci-alpha` (default 0.05), `--ci-samples` (default 1000), and `--seed <u64>`. Comprehensive unit tests and integration tests added.
 
 ### 13. Enforcing Uniform Boundary Testing across all Metrics
 *   **Type**: Design
