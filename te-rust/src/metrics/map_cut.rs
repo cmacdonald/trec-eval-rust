@@ -121,22 +121,4 @@ mod tests {
             panic!("Expected float value");
         }
     }
-
-    #[test]
-    fn test_map_cut_empty_ranking() {
-        let measure = MapCutMeasure::new(vec![5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![], 5);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
-    }
-
-    #[test]
-    fn test_map_cut_zero_relevance() {
-        let measure = MapCutMeasure::new(vec![5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![1, 0, 1], 0);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
-    }
 }

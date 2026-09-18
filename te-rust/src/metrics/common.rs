@@ -1,5 +1,77 @@
 use crate::metrics::EvalConfig;
 use std::collections::HashMap;
+use std::fmt;
+
+/// Error returned when a measure's parameter string cannot be parsed.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MeasureParseError {
+    pub message: String,
+}
+
+impl MeasureParseError {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self { message: message.into() }
+    }
+}
+
+impl fmt::Display for MeasureParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for MeasureParseError {}
+
+/// Parse a comma-separated list of integer cutoffs (e.g. "5,10,20").
+/// An empty string yields the provided defaults.
+pub fn parse_int_cutoffs(params: &str, default: &[usize]) -> Result<Vec<usize>, MeasureParseError> {
+    if params.is_empty() {
+        return Ok(default.to_vec());
+    }
+    let mut list = Vec::new();
+    for s in params.split(',') {
+        let tok = s.trim();
+        match tok.parse::<usize>() {
+            Ok(v) => list.push(v),
+            Err(_) => return Err(MeasureParseError::new(format!("invalid integer cutoff '{}'", tok))),
+        }
+    }
+    Ok(list)
+}
+
+/// Parse a comma-separated list of float cutoffs/coefficients (e.g. "0.0,0.5,1.0").
+/// An empty string yields the provided defaults.
+pub fn parse_float_cutoffs(params: &str, default: &[f64]) -> Result<Vec<f64>, MeasureParseError> {
+    if params.is_empty() {
+        return Ok(default.to_vec());
+    }
+    let mut list = Vec::new();
+    for s in params.split(',') {
+        let tok = s.trim();
+        match tok.parse::<f64>() {
+            Ok(v) => list.push(v),
+            Err(_) => return Err(MeasureParseError::new(format!("invalid float value '{}'", tok))),
+        }
+    }
+    Ok(list)
+}
+
+/// Parse a comma-separated list of `key=value` pairs (e.g. "p=0.9").
+/// Values are returned as raw strings for the caller to interpret. An empty
+/// string yields an empty list.
+pub fn parse_key_values(params: &str) -> Result<Vec<(String, String)>, MeasureParseError> {
+    if params.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut pairs = Vec::new();
+    for part in params.split(',') {
+        let (k, v) = part
+            .split_once('=')
+            .ok_or_else(|| MeasureParseError::new(format!("expected key=value, got '{}'", part.trim())))?;
+        pairs.push((k.trim().to_string(), v.trim().to_string()));
+    }
+    Ok(pairs)
+}
 
 /// Helper function to count the number of relevant documents retrieved up to a certain rank limit.
 pub(crate) fn count_relevant_retrieved_up_to(results_rel_list: &[i64], limit: usize, config: &EvalConfig) -> usize {
@@ -115,5 +187,59 @@ pub(crate) fn make_mock_state(results_rel_list: Vec<i64>, num_rel: i64) -> crate
         num_nonpool: 0,
         num_unjudged_in_pool: 0,
         rel_levels,
+    }
+}
+
+#[cfg(test)]
+mod parser_tests {
+    use super::*;
+
+    #[test]
+    fn int_cutoffs_empty_uses_default() {
+        assert_eq!(parse_int_cutoffs("", &[5, 10, 20]).unwrap(), vec![5, 10, 20]);
+    }
+
+    #[test]
+    fn int_cutoffs_parses_and_trims() {
+        assert_eq!(parse_int_cutoffs("5, 10 ,20", &[]).unwrap(), vec![5, 10, 20]);
+    }
+
+    #[test]
+    fn int_cutoffs_rejects_bad_token() {
+        assert!(parse_int_cutoffs("5,x,20", &[]).is_err());
+        assert!(parse_int_cutoffs("5,-1", &[]).is_err());
+    }
+
+    #[test]
+    fn float_cutoffs_empty_uses_default() {
+        assert_eq!(parse_float_cutoffs("", &[0.0, 1.0]).unwrap(), vec![0.0, 1.0]);
+    }
+
+    #[test]
+    fn float_cutoffs_parses_and_trims() {
+        assert_eq!(parse_float_cutoffs("0.0, 0.5 ,1.0", &[]).unwrap(), vec![0.0, 0.5, 1.0]);
+    }
+
+    #[test]
+    fn float_cutoffs_rejects_bad_token() {
+        assert!(parse_float_cutoffs("0.0,nope", &[]).is_err());
+    }
+
+    #[test]
+    fn key_values_empty_is_empty() {
+        assert_eq!(parse_key_values("").unwrap(), Vec::<(String, String)>::new());
+    }
+
+    #[test]
+    fn key_values_parses_and_trims() {
+        assert_eq!(
+            parse_key_values("p=0.9, q = 2").unwrap(),
+            vec![("p".to_string(), "0.9".to_string()), ("q".to_string(), "2".to_string())]
+        );
+    }
+
+    #[test]
+    fn key_values_rejects_missing_equals() {
+        assert!(parse_key_values("p0.9").is_err());
     }
 }

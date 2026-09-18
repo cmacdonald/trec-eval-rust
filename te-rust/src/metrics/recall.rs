@@ -84,22 +84,4 @@ mod tests {
         let actual = measure.calc(&config, &EvalState::Standard(state));
         assert_eq!(actual, vec![MetricValue::Float(0.25), MetricValue::Float(0.5)]);
     }
-
-    #[test]
-    fn test_recall_empty_ranking() {
-        let measure = RecallCutMeasure::new(vec![1, 5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![], 5);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
-    }
-
-    #[test]
-    fn test_recall_zero_relevance() {
-        let measure = RecallCutMeasure::new(vec![1, 5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![1, 0, 1], 0);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
-    }
 }

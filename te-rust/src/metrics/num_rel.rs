@@ -33,6 +33,10 @@ impl Measure for NumRelMeasure {
         vec!["num_rel".to_string()]
     }
 
+    fn invariants(&self) -> &'static [crate::metrics::invariants::Invariant] {
+        crate::metrics::invariants::COUNTS
+    }
+
     fn initial_values(&self) -> Vec<MetricValue> {
         vec![MetricValue::Integer(0)]
     }

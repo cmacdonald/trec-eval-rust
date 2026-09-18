@@ -37,6 +37,10 @@ impl Measure for GMBprefMeasure {
         false
     }
 
+    fn invariants(&self) -> &'static [crate::metrics::invariants::Invariant] {
+        crate::metrics::invariants::FINITE_ONLY
+    }
+
     fn initial_values(&self) -> Vec<MetricValue> {
         vec![MetricValue::Float(0.0)]
     }

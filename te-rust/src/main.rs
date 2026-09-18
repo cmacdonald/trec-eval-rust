@@ -2,13 +2,11 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::process;
 
-mod io;
-pub mod eval;
-pub mod metrics;
-
+use te_rust::eval::bootstrap::{bootstrap_ci_with_aggregator, bootstrap_mean_ci, BootstrapConfig};
+use te_rust::{eval, io, metrics};
 use io::{parse_trec_qrels, parse_trec_run, QrelsQuery, RunQuery};
 use eval::alignment::align_query;
-use metrics::{EvalConfig, EvalState, Measure, MetricValue, ValueFormat};
+use metrics::{EvalConfig, EvalState, MetricValue, ValueFormat};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -49,6 +47,26 @@ struct Args {
     #[arg(short = 'm', value_name = "measure")]
     measures: Vec<String>,
 
+    /// Compute and print bootstrap confidence intervals for summary averages
+    #[arg(short = 'C', long = "ci")]
+    ci: bool,
+
+    /// Format confidence intervals in bracketed human-readable format [lower, upper]
+    #[arg(long = "ci-pretty")]
+    ci_pretty: bool,
+
+    /// Significance level alpha for confidence intervals (default: 0.05 for 95% CI)
+    #[arg(long = "ci-alpha", default_value = "0.05")]
+    ci_alpha: f64,
+
+    /// Number of bootstrap resamples (default: 1000)
+    #[arg(long = "ci-samples", default_value = "1000")]
+    ci_samples: usize,
+
+    /// Optional RNG seed for deterministic bootstrap resampling
+    #[arg(long = "seed")]
+    seed: Option<u64>,
+
     /// List all available measures with a short description and exit
     #[arg(long = "help-measures")]
     help_measures: bool,
@@ -69,54 +87,37 @@ struct Args {
 }
 
 fn handle_help_flags(help_measures: bool, help_measure: Option<&str>) {
-    let all_possible_measures: Vec<Box<dyn Measure>> = vec![
-        Box::new(metrics::runid::RunIdMeasure::new()),
-        Box::new(metrics::num_ret::NumRetMeasure::new()),
-        Box::new(metrics::num_rel::NumRelMeasure::new()),
-        Box::new(metrics::num_rel_ret::NumRelRetMeasure::new()),
-        Box::new(metrics::map::MapMeasure::new()),
-        Box::new(metrics::rprec::RprecMeasure::new()),
-        Box::new(metrics::recip_rank::RecipRankMeasure::new()),
-        Box::new(metrics::precision::PrecisionCutMeasure::new(vec![])),
-        Box::new(metrics::ndcg_cut::NdcgCutMeasure::new(vec![])),
-        Box::new(metrics::bpref::BprefMeasure::new()),
-        Box::new(metrics::recall::RecallCutMeasure::new(vec![])),
-        Box::new(metrics::success::SuccessCutMeasure::new(vec![])),
-        Box::new(metrics::avg_11pt::Avg11PtMeasure::new(vec![], "")),
-        Box::new(metrics::utility::UtilityMeasure::new(vec![0.0, 0.0, 0.0, 0.0], "")),
-        Box::new(metrics::relstring::RelstringMeasure::new(0, "")),
-        Box::new(metrics::map_cut::MapCutMeasure::new(vec![])),
-        Box::new(metrics::relative_p::RelativePMeasure::new(vec![])),
-        Box::new(metrics::rprec_mult::RprecMultMeasure::new(vec![])),
-        Box::new(metrics::iprec_at_recall::IprecAtRecallMeasure::new(vec![])),
-        Box::new(metrics::gm_map::GMMapMeasure::new()),
-        Box::new(metrics::gm_bpref::GMBprefMeasure::new()),
-        Box::new(metrics::infap::InfAPMeasure::new()),
-        Box::new(metrics::unj::UnjMeasure::new(vec![])),
-        Box::new(metrics::num_nonrel_judged_ret::NumNonrelJudgedRetMeasure::new()),
-        Box::new(metrics::rbp::RbpMeasure::new(0.9, "")),
-        Box::new(metrics::rbp_resid::RbpResidMeasure::new(0.9, "")),
-        Box::new(metrics::yaap::YaapMeasure::new()),
-        Box::new(metrics::bin_g::BinGMeasure::new()),
-        Box::new(metrics::ndcg_rel::NdcgRelMeasure::new("")),
-        Box::new(metrics::rndcg::RndcgMeasure::new("")),
-        Box::new(metrics::ndcg_p::NdcgPMeasure::new("")),
-    ];
-
     if help_measures {
-        println!("{:<15}\t{}", "Measure", "Description");
-        println!("--------------------------------------------------");
-        for m in all_possible_measures {
-            println!("{:<15}\t{}", m.name(), m.short_description());
+        println!("{:<22} {:<13} {}", "Measure", "Status", "Description");
+        println!("{}", "-".repeat(70));
+        for spec in metrics::registry::registry() {
+            if let Ok(m) = (spec.factory)("") {
+                println!("{:<22} {:<13} {}", m.name(), spec.status.label(), m.short_description());
+            }
         }
+        println!("\nRequest measures with -m <name> (repeatable). See --help-measure <name> for details.");
         process::exit(0);
     }
 
     if let Some(target) = help_measure {
-        for m in all_possible_measures {
-            if m.name().eq_ignore_ascii_case(target) {
-                println!("{}", m.explanation());
-                process::exit(0);
+        for spec in metrics::registry::registry() {
+            if spec.name.eq_ignore_ascii_case(target) {
+                if let Ok(m) = (spec.factory)("") {
+                    println!("{}", m.name());
+                    if !spec.status.label().is_empty() {
+                        println!("Status: {}", spec.status.label());
+                    }
+                    println!();
+                    println!("{}", m.explanation());
+                    println!();
+                    // How to request it, and what parameters it accepts.
+                    if spec.usage.is_empty() {
+                        println!("Usage:  -m {}", m.name());
+                    } else {
+                        println!("Usage:  -m {}", spec.usage);
+                    }
+                    process::exit(0);
+                }
             }
         }
         eprintln!("te-rust: Unknown measure '{}'", target);
@@ -166,387 +167,21 @@ fn main() {
         }
     };
 
-    // 4. Resolve measures and predefined nicknames (groups)
-    let mut requested_names = Vec::new();
-    if args.measures.is_empty() {
-        requested_names.push("official".to_string());
+    // 4. Resolve measures (groups + parameters) via the central registry.
+    let requested_names: Vec<String> = if args.measures.is_empty() {
+        vec!["official".to_string()]
     } else {
-        for m in &args.measures {
-            requested_names.push(m.clone());
-        }
-    }
+        args.measures.clone()
+    };
 
-    let mut final_names = Vec::new();
-    for name in &requested_names {
-        match name.as_str() {
-            "official" => {
-                final_names.push("runid".to_string());
-                final_names.push("num_ret".to_string());
-                final_names.push("num_rel".to_string());
-                final_names.push("num_rel_ret".to_string());
-                final_names.push("map".to_string());
-                final_names.push("Rprec".to_string());
-                final_names.push("recip_rank".to_string());
-                final_names.push("bpref".to_string());
-                final_names.push("P".to_string());
-            }
-            "set" => {
-                final_names.push("runid".to_string());
-                final_names.push("num_ret".to_string());
-                final_names.push("num_rel".to_string());
-                final_names.push("num_rel_ret".to_string());
-                final_names.push("set_relative_P".to_string());
-                final_names.push("set_map".to_string());
-                final_names.push("set_F".to_string());
-            }
-            "all_trec" => {
-                final_names.push("runid".to_string());
-                final_names.push("num_ret".to_string());
-                final_names.push("num_rel".to_string());
-                final_names.push("num_rel_ret".to_string());
-                final_names.push("map".to_string());
-                final_names.push("Rprec".to_string());
-                final_names.push("recip_rank".to_string());
-                final_names.push("bpref".to_string());
-                final_names.push("P".to_string());
-                final_names.push("ndcg_cut".to_string());
-                final_names.push("ndcg".to_string());
-                final_names.push("recall".to_string());
-                final_names.push("success".to_string());
-                final_names.push("11pt_avg".to_string());
-                final_names.push("utility".to_string());
-                final_names.push("relstring".to_string());
-                final_names.push("set_relative_P".to_string());
-                final_names.push("set_map".to_string());
-                final_names.push("set_F".to_string());
-                final_names.push("G".to_string());
-            }
-            other => {
-                final_names.push(other.to_string());
-            }
+    let active_measures = match metrics::registry::resolve_measures(&requested_names) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("te-rust: {}", e);
+            process::exit(1);
         }
-    }
+    };
 
-    let mut active_measures: Vec<Box<dyn Measure>> = Vec::new();
-    for name in &final_names {
-        let parts: Vec<&str> = name.splitn(2, '.').collect();
-        let root = parts[0];
-        let params_str = if parts.len() > 1 { parts[1] } else { "" };
-
-        match root {
-            "runid" => active_measures.push(Box::new(metrics::runid::RunIdMeasure::new())),
-            "num_ret" => active_measures.push(Box::new(metrics::num_ret::NumRetMeasure::new())),
-            "num_rel" => active_measures.push(Box::new(metrics::num_rel::NumRelMeasure::new())),
-            "num_rel_ret" => active_measures.push(Box::new(metrics::num_rel_ret::NumRelRetMeasure::new())),
-            "set_relative_P" => active_measures.push(Box::new(metrics::set_relative_p::SetRelativePMeasure::new())),
-            "set_map" => active_measures.push(Box::new(metrics::set_map::SetMapMeasure::new())),
-            "set_F" => {
-                let beta = if params_str.is_empty() {
-                    1.0
-                } else {
-                    match params_str.parse::<f64>() {
-                        Ok(v) => v,
-                        Err(_) => {
-                            eprintln!("te-rust: Invalid float parameter '{}' in measure '{}'", params_str, name);
-                            process::exit(1);
-                        }
-                    }
-                };
-                active_measures.push(Box::new(metrics::set_f::SetFMeasure::new(beta, params_str)));
-            }
-            "G" => active_measures.push(Box::new(metrics::g::GMeasure::new(params_str))),
-            "map" => active_measures.push(Box::new(metrics::map::MapMeasure::new())),
-            "Rprec" => active_measures.push(Box::new(metrics::rprec::RprecMeasure::new())),
-            "recip_rank" => active_measures.push(Box::new(metrics::recip_rank::RecipRankMeasure::new())),
-            "bpref" => active_measures.push(Box::new(metrics::bpref::BprefMeasure::new())),
-            "P" => {
-                let cutoffs = if params_str.is_empty() {
-                    vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<usize>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::precision::PrecisionCutMeasure::new(cutoffs)));
-            }
-            "ndcg_cut" => {
-                let cutoffs = if params_str.is_empty() {
-                    vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<usize>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::ndcg_cut::NdcgCutMeasure::new(cutoffs)));
-            }
-            "ndcg" => {
-                active_measures.push(Box::new(metrics::ndcg::NdcgMeasure::new(params_str)));
-            }
-            "recall" => {
-                let cutoffs = if params_str.is_empty() {
-                    vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<usize>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::recall::RecallCutMeasure::new(cutoffs)));
-            }
-            "success" => {
-                let cutoffs = if params_str.is_empty() {
-                    vec![1, 5, 10]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<usize>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::success::SuccessCutMeasure::new(cutoffs)));
-            }
-            "11pt_avg" => {
-                let cutoffs = if params_str.is_empty() {
-                    vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<f64>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid float cutoff '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::avg_11pt::Avg11PtMeasure::new(cutoffs, params_str)));
-            }
-            "utility" => {
-                let coeffs = if params_str.is_empty() {
-                    vec![1.0, -1.0, 0.0, 0.0]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<f64>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid float coefficient '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    if list.len() != 4 {
-                        eprintln!("te-rust: Improper number of coefficients (expected 4) in measure '{}'", name);
-                        process::exit(1);
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::utility::UtilityMeasure::new(coeffs, params_str)));
-            }
-            "relstring" => {
-                let len = if params_str.is_empty() {
-                    10
-                } else {
-                    match params_str.trim().parse::<usize>() {
-                        Ok(v) => v,
-                        Err(_) => {
-                            eprintln!("te-rust: Invalid length '{}' in measure '{}'", params_str, name);
-                            process::exit(1);
-                        }
-                    }
-                };
-                active_measures.push(Box::new(metrics::relstring::RelstringMeasure::new(len, params_str)));
-            }
-            "map_cut" => {
-                let cutoffs = if params_str.is_empty() {
-                    vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<usize>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::map_cut::MapCutMeasure::new(cutoffs)));
-            }
-            "relative_P" => {
-                let cutoffs = if params_str.is_empty() {
-                    vec![5, 10, 15, 20, 30, 100, 200, 500, 1000]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<usize>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::relative_p::RelativePMeasure::new(cutoffs)));
-            }
-            "Rprec_mult" => {
-                let cutoffs = if params_str.is_empty() {
-                    vec![0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<f64>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid float cutoff '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::rprec_mult::RprecMultMeasure::new(cutoffs)));
-            }
-            "iprec_at_recall" => {
-                let cutoffs = if params_str.is_empty() {
-                    vec![0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<f64>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid float cutoff '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::iprec_at_recall::IprecAtRecallMeasure::new(cutoffs)));
-            }
-            "gm_map" => {
-                active_measures.push(Box::new(metrics::gm_map::GMMapMeasure::new()));
-            }
-            "gm_bpref" => {
-                active_measures.push(Box::new(metrics::gm_bpref::GMBprefMeasure::new()));
-            }
-            "infAP" => {
-                active_measures.push(Box::new(metrics::infap::InfAPMeasure::new()));
-            }
-            "unj" => {
-                let cutoffs = if params_str.is_empty() {
-                    vec![5, 10, 20]
-                } else {
-                    let mut list = Vec::new();
-                    for s in params_str.split(',') {
-                        match s.trim().parse::<usize>() {
-                            Ok(v) => list.push(v),
-                            Err(_) => {
-                                eprintln!("te-rust: Invalid integer cutoff '{}' in measure '{}'", s, name);
-                                process::exit(1);
-                            }
-                        }
-                    }
-                    list
-                };
-                active_measures.push(Box::new(metrics::unj::UnjMeasure::new(cutoffs)));
-            }
-            "num_nonrel_judged_ret" => {
-                active_measures.push(Box::new(metrics::num_nonrel_judged_ret::NumNonrelJudgedRetMeasure::new()));
-            }
-            "rbp" => {
-                let mut p = 0.9;
-                if !params_str.is_empty() {
-                    for part in params_str.split(',') {
-                        let subparts: Vec<&str> = part.split('=').collect();
-                        if subparts.len() == 2 && subparts[0].trim() == "p" {
-                            match subparts[1].trim().parse::<f64>() {
-                                Ok(v) => p = v,
-                                Err(_) => {
-                                    eprintln!("te-rust: Invalid float parameter '{}' in measure '{}'", params_str, name);
-                                    process::exit(1);
-                                }
-                            }
-                        }
-                    }
-                }
-                active_measures.push(Box::new(metrics::rbp::RbpMeasure::new(p, params_str)));
-            }
-            "rbp_resid" => {
-                let mut p = 0.9;
-                if !params_str.is_empty() {
-                    for part in params_str.split(',') {
-                        let subparts: Vec<&str> = part.split('=').collect();
-                        if subparts.len() == 2 && subparts[0].trim() == "p" {
-                            match subparts[1].trim().parse::<f64>() {
-                                Ok(v) => p = v,
-                                Err(_) => {
-                                    eprintln!("te-rust: Invalid float parameter '{}' in measure '{}'", params_str, name);
-                                    process::exit(1);
-                                }
-                            }
-                        }
-                    }
-                }
-                active_measures.push(Box::new(metrics::rbp_resid::RbpResidMeasure::new(p, params_str)));
-            }
-            "yaap" => {
-                active_measures.push(Box::new(metrics::yaap::YaapMeasure::new()));
-            }
-            "binG" => {
-                active_measures.push(Box::new(metrics::bin_g::BinGMeasure::new()));
-            }
-            "ndcg_rel" => {
-                active_measures.push(Box::new(metrics::ndcg_rel::NdcgRelMeasure::new(params_str)));
-            }
-            "Rndcg" => {
-                active_measures.push(Box::new(metrics::rndcg::RndcgMeasure::new(params_str)));
-            }
-            "ndcg_p" => {
-                active_measures.push(Box::new(metrics::ndcg_p::NdcgPMeasure::new(params_str)));
-            }
-            other => {
-                eprintln!("te-rust: Unknown measure '{}'", other);
-                process::exit(1);
-            }
-        }
-    }
 
     let mut qrels_by_qid: HashMap<String, &QrelsQuery> = HashMap::with_capacity(qrels_data.queries.len());
     for qrels_q in &qrels_data.queries {
@@ -585,11 +220,21 @@ fn main() {
         global_gains,
     };
 
-    // 7. Initialize running totals
+    // 7. Initialize running totals & per-query score buffers for bootstrap CI
+    let enable_ci = args.ci || args.ci_pretty;
     let mut running_totals: Vec<Vec<MetricValue>> = active_measures
         .iter()
         .map(|m| m.initial_values())
         .collect();
+
+    let mut query_scores_per_measure: Vec<Vec<Vec<f64>>> = if enable_ci {
+        active_measures
+            .iter()
+            .map(|m| vec![Vec::with_capacity(eval_qids.len()); m.sub_metrics().len()])
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     // 8. Execution Loop: Query Evaluation
     for qid in &eval_qids {
@@ -620,6 +265,14 @@ fn main() {
                 }
             }
 
+            if enable_ci && m.is_summary_enabled() && m.format() == ValueFormat::Float {
+                for (sub_idx, val) in q_scores.iter().enumerate() {
+                    if let MetricValue::Float(f) = val {
+                        query_scores_per_measure[m_idx][sub_idx].push(*f);
+                    }
+                }
+            }
+
             m.accumulate(&q_scores, &mut running_totals[m_idx]);
         }
     }
@@ -627,6 +280,11 @@ fn main() {
     // 9. Summary averages / totals
     if config.summary_flag && num_queries_evaluated > 0 {
         let total_qrels_queries = qrels_data.queries.len();
+        let boot_config = BootstrapConfig {
+            num_samples: args.ci_samples,
+            alpha: args.ci_alpha,
+            seed: args.seed,
+        };
 
         for (m_idx, m) in active_measures.iter().enumerate() {
             if !m.is_summary_enabled() {
@@ -638,7 +296,34 @@ fn main() {
             let sub_names = m.sub_metrics();
             for (sub_idx, val) in totals.iter().enumerate() {
                 let name = &sub_names[sub_idx];
-                print_metric_value(name, "all", val, m.format());
+
+                if enable_ci && m.format() == ValueFormat::Float {
+                    let scores = &query_scores_per_measure[m_idx][sub_idx];
+                    let is_geo_mean = m.name() == "gm_map" || m.name() == "gm_bpref";
+                    let ci = if is_geo_mean {
+                        bootstrap_ci_with_aggregator(scores, &boot_config, |sample| {
+                            (sample.iter().sum::<f64>() / sample.len() as f64).exp()
+                        })
+                    } else {
+                        bootstrap_mean_ci(scores, &boot_config)
+                    };
+
+                    if let (MetricValue::Float(f), Some(ci)) = (val, ci) {
+                        if args.ci_pretty {
+                            println!("{:<22}\t{}\t{:.4} [{:.4}, {:.4}]", name, "all", f, ci.lower, ci.upper);
+                        } else {
+                            print_metric_value(name, "all", val, m.format());
+                            let lower_name = format!("{}_ci_lower", name);
+                            let upper_name = format!("{}_ci_upper", name);
+                            print_metric_value(&lower_name, "all", &MetricValue::Float(ci.lower), ValueFormat::Float);
+                            print_metric_value(&upper_name, "all", &MetricValue::Float(ci.upper), ValueFormat::Float);
+                        }
+                    } else {
+                        print_metric_value(name, "all", val, m.format());
+                    }
+                } else {
+                    print_metric_value(name, "all", val, m.format());
+                }
             }
         }
     }

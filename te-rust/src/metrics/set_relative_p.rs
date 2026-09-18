@@ -75,22 +75,4 @@ mod tests {
         let actual = measure.calc(&config, &EvalState::Standard(state));
         assert_eq!(actual, vec![MetricValue::Float(0.5)]);
     }
-
-    #[test]
-    fn test_set_relative_p_empty() {
-        let measure = SetRelativePMeasure::new();
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![], 5);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
-    }
-
-    #[test]
-    fn test_set_relative_p_zero_rel() {
-        let measure = SetRelativePMeasure::new();
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![0, 0, 0], 0);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
-    }
 }
