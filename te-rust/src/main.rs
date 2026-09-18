@@ -2,6 +2,7 @@ use clap::Parser;
 use std::collections::HashMap;
 use std::process;
 
+use te_rust::eval::bootstrap::{bootstrap_ci_with_aggregator, bootstrap_mean_ci, BootstrapConfig};
 use te_rust::{eval, io, metrics};
 use io::{parse_trec_qrels, parse_trec_run, QrelsQuery, RunQuery};
 use eval::alignment::align_query;
@@ -45,6 +46,26 @@ struct Args {
     /// Calculate only the indicated measure(s)
     #[arg(short = 'm', value_name = "measure")]
     measures: Vec<String>,
+
+    /// Compute and print bootstrap confidence intervals for summary averages
+    #[arg(short = 'C', long = "ci")]
+    ci: bool,
+
+    /// Format confidence intervals in bracketed human-readable format [lower, upper]
+    #[arg(long = "ci-pretty")]
+    ci_pretty: bool,
+
+    /// Significance level alpha for confidence intervals (default: 0.05 for 95% CI)
+    #[arg(long = "ci-alpha", default_value = "0.05")]
+    ci_alpha: f64,
+
+    /// Number of bootstrap resamples (default: 1000)
+    #[arg(long = "ci-samples", default_value = "1000")]
+    ci_samples: usize,
+
+    /// Optional RNG seed for deterministic bootstrap resampling
+    #[arg(long = "seed")]
+    seed: Option<u64>,
 
     /// List all available measures with a short description and exit
     #[arg(long = "help-measures")]
@@ -199,11 +220,21 @@ fn main() {
         global_gains,
     };
 
-    // 7. Initialize running totals
+    // 7. Initialize running totals & per-query score buffers for bootstrap CI
+    let enable_ci = args.ci || args.ci_pretty;
     let mut running_totals: Vec<Vec<MetricValue>> = active_measures
         .iter()
         .map(|m| m.initial_values())
         .collect();
+
+    let mut query_scores_per_measure: Vec<Vec<Vec<f64>>> = if enable_ci {
+        active_measures
+            .iter()
+            .map(|m| vec![Vec::with_capacity(eval_qids.len()); m.sub_metrics().len()])
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     // 8. Execution Loop: Query Evaluation
     for qid in &eval_qids {
@@ -234,6 +265,14 @@ fn main() {
                 }
             }
 
+            if enable_ci && m.is_summary_enabled() && m.format() == ValueFormat::Float {
+                for (sub_idx, val) in q_scores.iter().enumerate() {
+                    if let MetricValue::Float(f) = val {
+                        query_scores_per_measure[m_idx][sub_idx].push(*f);
+                    }
+                }
+            }
+
             m.accumulate(&q_scores, &mut running_totals[m_idx]);
         }
     }
@@ -241,6 +280,11 @@ fn main() {
     // 9. Summary averages / totals
     if config.summary_flag && num_queries_evaluated > 0 {
         let total_qrels_queries = qrels_data.queries.len();
+        let boot_config = BootstrapConfig {
+            num_samples: args.ci_samples,
+            alpha: args.ci_alpha,
+            seed: args.seed,
+        };
 
         for (m_idx, m) in active_measures.iter().enumerate() {
             if !m.is_summary_enabled() {
@@ -252,7 +296,34 @@ fn main() {
             let sub_names = m.sub_metrics();
             for (sub_idx, val) in totals.iter().enumerate() {
                 let name = &sub_names[sub_idx];
-                print_metric_value(name, "all", val, m.format());
+
+                if enable_ci && m.format() == ValueFormat::Float {
+                    let scores = &query_scores_per_measure[m_idx][sub_idx];
+                    let is_geo_mean = m.name() == "gm_map" || m.name() == "gm_bpref";
+                    let ci = if is_geo_mean {
+                        bootstrap_ci_with_aggregator(scores, &boot_config, |sample| {
+                            (sample.iter().sum::<f64>() / sample.len() as f64).exp()
+                        })
+                    } else {
+                        bootstrap_mean_ci(scores, &boot_config)
+                    };
+
+                    if let (MetricValue::Float(f), Some(ci)) = (val, ci) {
+                        if args.ci_pretty {
+                            println!("{:<22}\t{}\t{:.4} [{:.4}, {:.4}]", name, "all", f, ci.lower, ci.upper);
+                        } else {
+                            print_metric_value(name, "all", val, m.format());
+                            let lower_name = format!("{}_ci_lower", name);
+                            let upper_name = format!("{}_ci_upper", name);
+                            print_metric_value(&lower_name, "all", &MetricValue::Float(ci.lower), ValueFormat::Float);
+                            print_metric_value(&upper_name, "all", &MetricValue::Float(ci.upper), ValueFormat::Float);
+                        }
+                    } else {
+                        print_metric_value(name, "all", val, m.format());
+                    }
+                } else {
+                    print_metric_value(name, "all", val, m.format());
+                }
             }
         }
     }
