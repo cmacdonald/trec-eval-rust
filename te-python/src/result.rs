@@ -5,6 +5,9 @@ use pyo3::types::{PyDict, PyList};
 use te_rust::eval::EvaluationOutput;
 use te_rust::metrics::MetricValue;
 
+use crate::stats::ComparisonResult;
+
+
 
 
 /// Rich evaluation result object providing mapping semantics and aggregation methods.
@@ -241,7 +244,82 @@ impl EvalResult {
         Ok(py_vals.into_any().unbind())
     }
 
+    /// Compare this evaluation run against another evaluation run using a statistical significance test.
+    ///
+    /// Parameters
+    /// ----------
+    /// other : EvalResult
+    ///     The comparison run result.
+    /// measure : str, default 'map'
+    ///     The measure to test across topics.
+    /// test : str, default 'paired_t'
+    ///     'paired_t', 'permutation', or 'bootstrap'.
+    /// num_resamples : int, default 10000
+    ///     Number of resamples for permutation/bootstrap tests.
+    /// seed : int, optional
+    ///     Optional RNG seed for reproducible permutation/bootstrap tests.
+    #[pyo3(signature = (other, measure = "map", test = "paired_t", num_resamples = 10000, seed = None))]
+    pub fn compare(
+        &self,
+        py: Python<'_>,
+        other: &EvalResult,
+        measure: &str,
+        test: &str,
+        num_resamples: usize,
+        seed: Option<u64>,
+    ) -> PyResult<ComparisonResult> {
+        // Collect aligned score vectors across all topics
+        let mut all_qids: Vec<String> = self.qids.clone();
+        for qid in &other.qids {
+            if !all_qids.contains(qid) {
+                all_qids.push(qid.clone());
+            }
+        }
+
+        let mut scores_a = Vec::with_capacity(all_qids.len());
+        let mut scores_b = Vec::with_capacity(all_qids.len());
+
+        for qid in &all_qids {
+            let score_a = self
+                .query_scores
+                .get(qid)
+                .and_then(|m| m.get(measure))
+                .map(|v| match v {
+                    MetricValue::Float(f) => *f,
+                    MetricValue::Integer(i) => *i as f64,
+                    _ => 0.0,
+                })
+                .unwrap_or(0.0);
+
+            let score_b = other
+                .query_scores
+                .get(qid)
+                .and_then(|m| m.get(measure))
+                .map(|v| match v {
+                    MetricValue::Float(f) => *f,
+                    MetricValue::Integer(i) => *i as f64,
+                    _ => 0.0,
+                })
+                .unwrap_or(0.0);
+
+            scores_a.push(score_a);
+            scores_b.push(score_b);
+        }
+
+        py.allow_threads(move || {
+            crate::stats::run_significance_test(
+                &scores_a,
+                &scores_b,
+                measure,
+                test,
+                num_resamples,
+                seed,
+            )
+        })
+    }
+
     fn __repr__(&self) -> String {
+
         format!(
             "<EvalResult: {} queries evaluated, {} aggregate measures>",
             self.num_queries_evaluated,

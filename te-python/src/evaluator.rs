@@ -9,12 +9,13 @@ use crate::conversions::{ingest_qrels, ingest_run, ingest_run_arrays, ColumnMapp
 use crate::result::EvalResult;
 
 /// Core evaluation engine holding pre-indexed relevance judgments and evaluation configuration.
-#[pyclass(name = "Evaluator")]
+#[pyclass(subclass, name = "Evaluator")]
 pub struct Evaluator {
     pub qrels: QrelsData,
     pub measure_names: Vec<String>,
     pub config: EvalConfig,
 }
+
 
 #[pymethods]
 impl Evaluator {
