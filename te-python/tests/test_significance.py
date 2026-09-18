@@ -119,9 +119,14 @@ def test_compare_against_baseline(multi_system_setup):
     repr_str = repr(comp_table)
     assert "strong_model" in repr_str
 
-    df = comp_table.to_dataframe()
-    assert len(df) == 2
-    assert "p_adj" in df.columns
+    try:
+        import pandas as pd
+        df = comp_table.to_dataframe()
+        assert len(df) == 2
+        assert "p_adj" in df.columns
+    except ImportError:
+        with pytest.raises(ImportError):
+            comp_table.to_dataframe()
 
 
 def test_compare_all_pairs_matrix(multi_system_setup):
@@ -149,5 +154,11 @@ def test_compare_all_pairs_matrix(multi_system_setup):
     assert "Pairwise Comparisons Matrix" in summary
     assert "strong" in summary
 
-    df = matrix.to_dataframe()
-    assert df.shape == (3, 3)
+    try:
+        import pandas as pd
+        df = matrix.to_dataframe()
+        assert df.shape == (3, 3)
+    except ImportError:
+        with pytest.raises(ImportError):
+            matrix.to_dataframe()
+

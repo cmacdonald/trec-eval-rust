@@ -57,11 +57,15 @@ The compiled binary will be located at `target/release/te-rust`.
 # Install development build into current Python environment
 cd te-python
 uv run maturin develop
-
-# Run Python test suite
 cd ..
+
+# Run Python test suite with all dev dependencies (Pandas, NumPy, SciPy):
+uv run --project te-python --extra dev pytest te-python/tests
+
+# Or run in a minimal zero-dependency environment:
 uv run --with pytest pytest te-python/tests
 ```
+
 
 ---
 
