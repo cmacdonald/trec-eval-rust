@@ -85,22 +85,4 @@ mod tests {
             panic!("Expected float value");
         }
     }
-
-    #[test]
-    fn test_precision_empty_ranking() {
-        let measure = PrecisionCutMeasure::new(vec![1, 5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![], 5);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
-    }
-
-    #[test]
-    fn test_precision_no_relevant_retrieved() {
-        let measure = PrecisionCutMeasure::new(vec![1, 5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![0, 0, 0], 5);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
-    }
 }

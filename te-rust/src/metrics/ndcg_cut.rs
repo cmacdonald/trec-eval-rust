@@ -173,24 +173,6 @@ mod tests {
     }
 
     #[test]
-    fn test_ndcg_cut_empty_ranking() {
-        let measure = NdcgCutMeasure::new(vec![1, 5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![], 5);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
-    }
-
-    #[test]
-    fn test_ndcg_cut_zero_relevance() {
-        let measure = NdcgCutMeasure::new(vec![1, 5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![1, 0, 1], 0);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0)]);
-    }
-
-    #[test]
     fn test_ndcg_cut_global_gains() {
         let measure = NdcgCutMeasure::new(vec![1, 3]);
         let mut config = EvalConfig::default();

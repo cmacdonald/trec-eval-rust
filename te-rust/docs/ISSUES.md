@@ -6,11 +6,6 @@ This document tracks active design questions, structural decisions, and implemen
 
 ## Active Issues
 
-### 13. Enforcing Uniform Boundary Testing across all Metrics
-**Type**: Design
-**Status**: new
-**Description**: Implement an automated boundary checking suite (e.g. `tests/uniform_boundaries.rs`) that iterates the central measure registry (`metrics::registry::registry()`) and runs every registered standard measure against core boundary scenarios (empty ranking, zero-relevance topic, etc.). It should assert universal mathematical invariants (no non-finite values, standard float metrics defaulting safely to zero, integer counts defaulting to 0), guaranteeing coverage for all current and future measures automatically. Reopened after the registry refactor superseded the earlier `get_all_measures()` plan.
-
 ### 22. Confidence intervals
 **Type**: feature
 **Status**: new
@@ -20,6 +15,11 @@ This document tracks active design questions, structural decisions, and implemen
 ---
 
 ## Resolved Issues
+
+### 13. Enforcing Uniform Boundary Testing across all Metrics
+*   **Type**: Design
+*   **Status**: Resolved
+*   **Description**: Resolved to model boundary properties as declarative `Invariant` enum items (`Finite`, `NonNegative`, `EmptyRankingIsZero`, `ZeroRelevanceIsZero`, `UnitInterval`), declared directly on each measure via `Measure::invariants(&self) -> &'static [Invariant]`. This serves as self-documentation on the trait, while a centralized test-time checking loop (`metrics::invariants::checking`) iterates the entire measure registry and tests all 33 measures against their declared invariants across multiple boundary scenarios (empty rankings, zero-relevance topics, unjudged topics). Divergent categories cleanly override their declared invariant bundles (e.g. `COUNTS` for count measures, `SIGNED` for utility, `FINITE_ONLY` for log-transformed measures like `gm_map`/`gm_bpref`/`yaap`, `NONE` for string tags). Replaced ~370 lines of boilerplate `test_*_empty_ranking` and `test_*_zero_relevance` tests across individual metric files while preserving unique, measure-specific test scenarios.
 
 ### 24. Measures can be production, experimental, or obsolete
 *   **Type**: feature

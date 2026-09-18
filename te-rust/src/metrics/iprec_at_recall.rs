@@ -153,22 +153,4 @@ mod tests {
             panic!("Expected float value");
         }
     }
-
-    #[test]
-    fn test_iprec_at_recall_empty_ranking() {
-        let measure = IprecAtRecallMeasure::new(vec![0.0, 0.5, 1.0]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![], 5);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0), MetricValue::Float(0.0)]);
-    }
-
-    #[test]
-    fn test_iprec_at_recall_zero_relevance() {
-        let measure = IprecAtRecallMeasure::new(vec![0.0, 0.5, 1.0]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![1, 0, 1], 0);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0), MetricValue::Float(0.0), MetricValue::Float(0.0)]);
-    }
 }

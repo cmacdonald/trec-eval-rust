@@ -33,6 +33,10 @@ impl Measure for NumRetMeasure {
         vec!["num_ret".to_string()]
     }
 
+    fn invariants(&self) -> &'static [crate::metrics::invariants::Invariant] {
+        crate::metrics::invariants::COUNTS
+    }
+
     fn initial_values(&self) -> Vec<MetricValue> {
         vec![MetricValue::Integer(0)]
     }
@@ -66,14 +70,5 @@ mod tests {
         let state = make_mock_state(vec![1, 0, 1], 5);
         let actual = measure.calc(&config, &EvalState::Standard(state));
         assert_eq!(actual, vec![MetricValue::Integer(3)]);
-    }
-
-    #[test]
-    fn test_num_ret_empty_ranking() {
-        let measure = NumRetMeasure::new();
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![], 5);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Integer(0)]);
     }
 }
