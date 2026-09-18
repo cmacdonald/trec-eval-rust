@@ -1,5 +1,5 @@
 # Original C trec_eval checkout (no changes should be made here)
-trec_eval/
+/trec_eval/
 
 # Rust build artifacts
 target/

@@ -1,0 +1,18 @@
+[package]
+name = "te-python"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "_trec_eval"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.22" }
+te-rust = { path = "../te-rust" }
+
+[features]
+default = ["extension-module"]
+extension-module = ["pyo3/extension-module"]
+
