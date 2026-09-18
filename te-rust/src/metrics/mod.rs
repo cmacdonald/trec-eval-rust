@@ -36,8 +36,10 @@ pub mod ndcg_rel;
 pub mod rndcg;
 pub mod ndcg_p;
 pub mod registry;
+pub mod invariants;
 
 use crate::eval::QueryEvalState;
+use crate::metrics::invariants::Invariant;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ValueFormat {
@@ -123,6 +125,14 @@ pub trait Measure: Send + Sync {
     /// Whether this measure should be reported for individual queries.
     fn is_query_enabled(&self) -> bool {
         true
+    }
+
+    /// The invariants this measure claims to uphold (self-documentation,
+    /// verified by the uniform invariant test). Defaults to the standard
+    /// unit-interval bundle for normalized ranking measures; measures whose
+    /// behavior differs (counts, unnormalized scores, signed, string) override.
+    fn invariants(&self) -> &'static [Invariant] {
+        invariants::STANDARD_UNIT_INTERVAL
     }
 
     /// Returns the initial values for the running totals of this measure.

@@ -128,22 +128,4 @@ mod tests {
         assert_eq!(actual[1], MetricValue::Float(0.5));
         assert_eq!(actual[2], MetricValue::Float(1.0));
     }
-
-    #[test]
-    fn test_relative_p_empty_ranking() {
-        let measure = RelativePMeasure::new(vec![5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![], 5);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
-    }
-
-    #[test]
-    fn test_relative_p_zero_relevance() {
-        let measure = RelativePMeasure::new(vec![5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![1, 0, 1], 0);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
-    }
 }

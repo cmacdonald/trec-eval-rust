@@ -95,13 +95,4 @@ mod tests {
         let actual = measure.calc(&config, &EvalState::Standard(state));
         assert_eq!(actual, vec![MetricValue::Float(0.5), MetricValue::Float(0.4)]);
     }
-
-    #[test]
-    fn test_unj_empty_ranking() {
-        let measure = UnjMeasure::new(vec![5]);
-        let config = EvalConfig::default();
-        let state = make_mock_state(vec![], 5);
-        let actual = measure.calc(&config, &EvalState::Standard(state));
-        assert_eq!(actual, vec![MetricValue::Float(0.0)]);
-    }
 }

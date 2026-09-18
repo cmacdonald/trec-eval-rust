@@ -33,6 +33,10 @@ impl Measure for RunIdMeasure {
         vec!["runid".to_string()]
     }
 
+    fn invariants(&self) -> &'static [crate::metrics::invariants::Invariant] {
+        crate::metrics::invariants::NONE
+    }
+
     fn initial_values(&self) -> Vec<MetricValue> {
         vec![MetricValue::Str("".to_string())]
     }

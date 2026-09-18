@@ -45,6 +45,10 @@ impl Measure for RelstringMeasure {
         self.sub_metrics.clone()
     }
 
+    fn invariants(&self) -> &'static [crate::metrics::invariants::Invariant] {
+        crate::metrics::invariants::NONE
+    }
+
     fn initial_values(&self) -> Vec<MetricValue> {
         vec![MetricValue::Str(String::new())]
     }

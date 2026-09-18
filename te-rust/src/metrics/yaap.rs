@@ -33,6 +33,10 @@ impl Measure for YaapMeasure {
         vec!["yaap".to_string()]
     }
 
+    fn invariants(&self) -> &'static [crate::metrics::invariants::Invariant] {
+        crate::metrics::invariants::FINITE_ONLY
+    }
+
     fn initial_values(&self) -> Vec<MetricValue> {
         vec![MetricValue::Float(0.0)]
     }
