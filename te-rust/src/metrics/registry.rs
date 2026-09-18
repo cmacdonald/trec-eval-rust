@@ -197,15 +197,20 @@ pub fn registry() -> &'static [MeasureSpec] {
     ]
 }
 
-/// Look up a measure spec by its root name.
+/// Look up a measure spec by its root name (case-insensitive).
 pub fn find_spec(name: &str) -> Option<&'static MeasureSpec> {
-    registry().iter().find(|s| s.name == name)
+    let lookup = match name.to_ascii_lowercase().as_str() {
+        "mrr" | "rr" => "recip_rank",
+        "precision" => "P",
+        _ => name,
+    };
+    registry().iter().find(|s| s.name.eq_ignore_ascii_case(lookup))
 }
 
 /// Expand a predefined group name into its list of member measure names.
 /// Returns `None` if the name is not a known group.
 pub fn expand_group(name: &str) -> Option<&'static [&'static str]> {
-    match name {
+    match name.to_ascii_lowercase().as_str() {
         "official" => Some(&["runid", "num_ret", "num_rel", "num_rel_ret", "map", "Rprec", "recip_rank", "bpref", "P"]),
         "set" => Some(&["runid", "num_ret", "num_rel", "num_rel_ret", "set_relative_P", "set_map", "set_F"]),
         "all_trec" => Some(&[
@@ -217,11 +222,65 @@ pub fn expand_group(name: &str) -> Option<&'static [&'static str]> {
     }
 }
 
+/// Canonicalize an input measure string (e.g. `ndcg@10`, `P.5,10`, `P_5`, `MRR`) into `(root, params)`.
+fn canonicalize_measure_spec(arg: &str) -> (String, String) {
+    if let Some((root, cutoffs)) = arg.split_once('@') {
+        let root_lower = root.to_ascii_lowercase();
+        match root_lower.as_str() {
+            "ndcg" => ("ndcg_cut".to_string(), cutoffs.to_string()),
+            "map" => ("map_cut".to_string(), cutoffs.to_string()),
+            "p" | "precision" => ("P".to_string(), cutoffs.to_string()),
+            "recall" => ("recall".to_string(), cutoffs.to_string()),
+            "success" => ("success".to_string(), cutoffs.to_string()),
+            "unj" => ("unj".to_string(), cutoffs.to_string()),
+            "relative_p" => ("relative_P".to_string(), cutoffs.to_string()),
+            _ => (root.to_string(), cutoffs.to_string()),
+        }
+    } else if let Some((root, params)) = arg.split_once('.') {
+        (root.to_string(), params.to_string())
+    } else {
+        // Check for underscore cutoffs on known prefix names (e.g. P_5, ndcg_cut_10, map_cut_100, recall_10, success_5, unj_10)
+        let arg_lower = arg.to_ascii_lowercase();
+        if let Some(rest) = arg_lower.strip_prefix("p_") {
+            if rest.chars().all(|c| c.is_ascii_digit() || c == ',') {
+                return ("P".to_string(), rest.to_string());
+            }
+        }
+        if let Some(rest) = arg_lower.strip_prefix("ndcg_cut_") {
+            if rest.chars().all(|c| c.is_ascii_digit() || c == ',') {
+                return ("ndcg_cut".to_string(), rest.to_string());
+            }
+        }
+        if let Some(rest) = arg_lower.strip_prefix("map_cut_") {
+            if rest.chars().all(|c| c.is_ascii_digit() || c == ',') {
+                return ("map_cut".to_string(), rest.to_string());
+            }
+        }
+        if let Some(rest) = arg_lower.strip_prefix("recall_") {
+            if rest.chars().all(|c| c.is_ascii_digit() || c == ',') {
+                return ("recall".to_string(), rest.to_string());
+            }
+        }
+        if let Some(rest) = arg_lower.strip_prefix("success_") {
+            if rest.chars().all(|c| c.is_ascii_digit() || c == ',') {
+                return ("success".to_string(), rest.to_string());
+            }
+        }
+        if let Some(rest) = arg_lower.strip_prefix("unj_") {
+            if rest.chars().all(|c| c.is_ascii_digit() || c == ',') {
+                return ("unj".to_string(), rest.to_string());
+            }
+        }
+        (arg.to_string(), String::new())
+    }
+}
+
+
 /// Resolve a list of requested measure arguments into constructed measures.
 ///
 /// Each request is either a group name (expanded via [`expand_group`]) or a
-/// `root[.params]` measure specification. Parameters after the first `.` are
-/// passed to the measure's factory. Errors carry the offending argument.
+/// `root[.params]` (or alias like `root@cutoff`) measure specification.
+/// Parameters are passed to the measure's factory. Errors carry the offending argument.
 pub fn resolve_measures(requested: &[String]) -> Result<Vec<Box<dyn Measure>>, MeasureParseError> {
     // 1. Expand any groups into concrete measure argument strings.
     let mut expanded: Vec<String> = Vec::new();
@@ -235,18 +294,16 @@ pub fn resolve_measures(requested: &[String]) -> Result<Vec<Box<dyn Measure>>, M
     // 2. Build each measure from its root and parameter string.
     let mut measures: Vec<Box<dyn Measure>> = Vec::with_capacity(expanded.len());
     for arg in &expanded {
-        let (root, params) = match arg.split_once('.') {
-            Some((r, p)) => (r, p),
-            None => (arg.as_str(), ""),
-        };
-        let spec = find_spec(root)
-            .ok_or_else(|| MeasureParseError::new(format!("unknown measure '{}'", root)))?;
-        let measure = (spec.factory)(params)
+        let (root, params) = canonicalize_measure_spec(arg);
+        let spec = find_spec(&root)
+            .ok_or_else(|| MeasureParseError::new(format!("unknown measure '{}'", arg)))?;
+        let measure = (spec.factory)(&params)
             .map_err(|e| MeasureParseError::new(format!("measure '{}': {}", arg, e)))?;
         measures.push(measure);
     }
     Ok(measures)
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -289,6 +346,27 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn alias_and_cutoff_at_syntax_resolves() {
+        let measures = resolve_measures(&[
+            "ndcg@10".to_string(),
+            "MAP@100".to_string(),
+            "P@5,10".to_string(),
+            "mrr".to_string(),
+            "recip_rank".to_string(),
+        ]).unwrap();
+        assert_eq!(measures.len(), 5);
+        assert_eq!(measures[0].name(), "ndcg_cut");
+        assert_eq!(measures[0].sub_metrics(), vec!["ndcg_cut_10"]);
+        assert_eq!(measures[1].name(), "map_cut");
+        assert_eq!(measures[1].sub_metrics(), vec!["map_cut_100"]);
+        assert_eq!(measures[2].name(), "P");
+        assert_eq!(measures[2].sub_metrics(), vec!["P_5", "P_10"]);
+        assert_eq!(measures[3].name(), "recip_rank");
+        assert_eq!(measures[4].name(), "recip_rank");
+    }
+
 
     #[test]
     fn official_group_expands() {
