@@ -1426,9 +1426,25 @@ all = [
 ]
 dev = [
     { name = "maturin" },
+    { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "numpy", version = "2.5.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "pandas", version = "2.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9' and python_full_version < '3.11'" },
+    { name = "pandas", version = "3.0.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pyarrow", version = "17.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "pyarrow", version = "21.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "pyarrow", version = "25.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pytest", version = "8.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
     { name = "pytest", version = "8.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
     { name = "pytest", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "scipy", version = "1.10.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
+    { name = "scipy", version = "1.13.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.9.*'" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.11.*'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 numpy = [
     { name = "numpy", version = "1.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
@@ -1464,15 +1480,19 @@ stats = [
 requires-dist = [
     { name = "maturin", marker = "extra == 'dev'", specifier = ">=1.4" },
     { name = "numpy", marker = "extra == 'all'", specifier = ">=1.20" },
+    { name = "numpy", marker = "extra == 'dev'", specifier = ">=1.20" },
     { name = "numpy", marker = "extra == 'numpy'", specifier = ">=1.20" },
     { name = "numpy", marker = "extra == 'pandas'", specifier = ">=1.20" },
     { name = "numpy", marker = "extra == 'stats'", specifier = ">=1.20" },
     { name = "pandas", marker = "extra == 'all'", specifier = ">=1.0" },
+    { name = "pandas", marker = "extra == 'dev'", specifier = ">=1.0" },
     { name = "pandas", marker = "extra == 'pandas'", specifier = ">=1.0" },
     { name = "polars", marker = "extra == 'all'", specifier = ">=0.18" },
     { name = "pyarrow", marker = "extra == 'all'", specifier = ">=10.0" },
+    { name = "pyarrow", marker = "extra == 'dev'", specifier = ">=10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.8" },
+    { name = "scipy", marker = "extra == 'dev'", specifier = ">=1.8" },
     { name = "scipy", marker = "extra == 'stats'", specifier = ">=1.8" },
 ]
 provides-extras = ["numpy", "pandas", "stats", "all", "dev"]
