@@ -5,7 +5,7 @@ use te_rust::eval::evaluate_run;
 use te_rust::io::QrelsData;
 use te_rust::metrics::{registry::resolve_measures, EvalConfig};
 
-use crate::conversions::{ingest_qrels, ingest_run};
+use crate::conversions::{ingest_qrels, ingest_run, ingest_run_arrays, ColumnMapping};
 use crate::result::EvalResult;
 
 /// Core evaluation engine holding pre-indexed relevance judgments and evaluation configuration.
@@ -27,7 +27,10 @@ impl Evaluator {
         judged_docs_only = false,
         max_docs_per_topic = None,
         num_docs_in_coll = 0,
-        global_gains = None
+        global_gains = None,
+        qid = None,
+        docno = None,
+        rel = None
     ))]
     pub fn new(
         qrels: &Bound<'_, PyAny>,
@@ -38,8 +41,16 @@ impl Evaluator {
         max_docs_per_topic: Option<usize>,
         num_docs_in_coll: usize,
         global_gains: Option<String>,
+        qid: Option<String>,
+        docno: Option<String>,
+        rel: Option<String>,
     ) -> PyResult<Self> {
-        let qrels_data = ingest_qrels(qrels)?;
+        let mapping = ColumnMapping {
+            qid,
+            docno,
+            score_or_rel: rel,
+        };
+        let qrels_data = ingest_qrels(qrels, Some(&mapping))?;
 
         let measure_names = parse_measures_arg(measures)?;
 
@@ -71,8 +82,21 @@ impl Evaluator {
     }
 
     /// Evaluate a system run against pre-indexed relevance judgments.
-    pub fn evaluate(&self, py: Python<'_>, run: &Bound<'_, PyAny>) -> PyResult<EvalResult> {
-        let run_data = ingest_run(run)?;
+    #[pyo3(signature = (run, qid = None, docno = None, score = None))]
+    pub fn evaluate(
+        &self,
+        py: Python<'_>,
+        run: &Bound<'_, PyAny>,
+        qid: Option<String>,
+        docno: Option<String>,
+        score: Option<String>,
+    ) -> PyResult<EvalResult> {
+        let mapping = ColumnMapping {
+            qid,
+            docno,
+            score_or_rel: score,
+        };
+        let run_data = ingest_run(run, Some(&mapping))?;
 
         let active_measures = resolve_measures(&self.measure_names).map_err(|e| {
             PyValueError::new_err(format!("Measure resolution error: {}", e))
@@ -88,6 +112,31 @@ impl Evaluator {
 
         Ok(EvalResult::from_output(output))
     }
+
+    /// Evaluate 1D contiguous arrays/sequences of query IDs, doc IDs, and scores.
+    pub fn evaluate_arrays(
+        &self,
+        py: Python<'_>,
+        query_ids: &Bound<'_, PyAny>,
+        doc_ids: &Bound<'_, PyAny>,
+        scores: &Bound<'_, PyAny>,
+    ) -> PyResult<EvalResult> {
+        let run_data = ingest_run_arrays(query_ids, doc_ids, scores)?;
+
+        let active_measures = resolve_measures(&self.measure_names).map_err(|e| {
+            PyValueError::new_err(format!("Measure resolution error: {}", e))
+        })?;
+
+        let qrels_ref = &self.qrels;
+        let config_ref = &self.config;
+
+        let output = py.allow_threads(move || {
+            evaluate_run(qrels_ref, &run_data, &active_measures, config_ref, None)
+        });
+
+        Ok(EvalResult::from_output(output))
+    }
+
 }
 
 fn parse_measures_arg(measures: Option<&Bound<'_, PyAny>>) -> PyResult<Vec<String>> {

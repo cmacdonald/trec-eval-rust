@@ -20,15 +20,19 @@ def evaluate(
     max_docs_per_topic: Optional[int] = None,
     num_docs_in_coll: int = 0,
     global_gains: Optional[str] = None,
+    qid: Optional[str] = None,
+    docno: Optional[str] = None,
+    rel: Optional[str] = None,
+    score: Optional[str] = None,
 ) -> EvalResult:
     """Evaluate a run against relevance judgments using trec_eval.
 
     Parameters
     ----------
-    qrels : str, os.PathLike, Dict[str, Dict[str, int]], or Iterable[Tuple[str, str, int]]
-        Relevance judgments (file path, nested dict, or row iterable).
-    run : str, os.PathLike, Dict[str, Dict[str, float]], or Iterable[Tuple[str, str, float]]
-        System run results (file path, nested dict, or row iterable).
+    qrels : str, os.PathLike, Dict[str, Dict[str, int]], DataFrame, or Iterable
+        Relevance judgments (file path, nested dict, DataFrame, or row iterable).
+    run : str, os.PathLike, Dict[str, Dict[str, float]], DataFrame, or Iterable
+        System run results (file path, nested dict, DataFrame, or row iterable).
     measures : str or list of str, optional
         Measure names or groups (e.g. ['map', 'ndcg@10', 'P.5,10']). Defaults to 'official'.
     relevance_level : int, default 1
@@ -43,6 +47,14 @@ def evaluate(
         Number of documents in the collection (-N).
     global_gains : str, optional
         Global relevance-to-gain mapping (e.g. '1=3.5,2=9.0').
+    qid : str, optional
+        Column name for query IDs when evaluating DataFrames.
+    docno : str, optional
+        Column name for document IDs when evaluating DataFrames.
+    rel : str, optional
+        Column name for relevance grades when qrels is a DataFrame.
+    score : str, optional
+        Column name for retrieval scores when run is a DataFrame.
 
     Returns
     -------
@@ -58,8 +70,12 @@ def evaluate(
         max_docs_per_topic=max_docs_per_topic,
         num_docs_in_coll=num_docs_in_coll,
         global_gains=global_gains,
+        qid=qid,
+        docno=docno,
+        rel=rel,
     )
-    return evaluator.evaluate(run)
+    return evaluator.evaluate(run, qid=qid, docno=docno, score=score)
+
 
 
 __all__ = [

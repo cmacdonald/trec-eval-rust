@@ -20,8 +20,44 @@ fn extract_path_string(obj: &Bound<'_, PyAny>) -> Option<String> {
     None
 }
 
-/// Ingest relevance judgments (qrels) from a Python object (file path, dict, or iterable).
-pub fn ingest_qrels(obj: &Bound<'_, PyAny>) -> PyResult<QrelsData> {
+/// Options for mapping DataFrame column names.
+#[derive(Debug, Default, Clone)]
+pub struct ColumnMapping {
+    pub qid: Option<String>,
+    pub docno: Option<String>,
+    pub score_or_rel: Option<String>,
+}
+
+fn find_column_name(
+    df: &Bound<'_, PyAny>,
+    specified: Option<&str>,
+    candidates: &[&str],
+    field_label: &str,
+) -> PyResult<String> {
+    if let Some(col) = specified {
+        return Ok(col.to_string());
+    }
+    if let Ok(cols_obj) = df.getattr("columns") {
+        let cols: Vec<String> = if let Ok(iter) = cols_obj.iter() {
+            iter.filter_map(|x| x.ok()?.extract::<String>().ok()).collect()
+        } else {
+            Vec::new()
+        };
+        for &candidate in candidates {
+            if let Some(found) = cols.iter().find(|c| c.eq_ignore_ascii_case(candidate)) {
+                return Ok(found.clone());
+            }
+        }
+        return Err(PyValueError::new_err(format!(
+            "Could not automatically detect {} column in DataFrame. Available columns: {:?}. Specify column name explicitly.",
+            field_label, cols
+        )));
+    }
+    Err(PyTypeError::new_err("Object is not a DataFrame (missing .columns)"))
+}
+
+/// Ingest relevance judgments (qrels) from a Python object (file path, dict, DataFrame, or iterable).
+pub fn ingest_qrels(obj: &Bound<'_, PyAny>, mapping: Option<&ColumnMapping>) -> PyResult<QrelsData> {
     // 1. File path / PathLike
     if let Some(path_str) = extract_path_string(obj) {
         let path = Path::new(&path_str);
@@ -79,16 +115,73 @@ pub fn ingest_qrels(obj: &Bound<'_, PyAny>) -> PyResult<QrelsData> {
         });
     }
 
-    // 3. Iterable of 3-tuples or objects with (query_id, doc_id, relevance)
+    // 3. DataFrame (Pandas / Polars) with .columns
+    if obj.hasattr("columns").unwrap_or(false) {
+        let default_mapping = ColumnMapping::default();
+        let map = mapping.unwrap_or(&default_mapping);
+
+        let qid_col = find_column_name(
+            obj,
+            map.qid.as_deref(),
+            &["query_id", "qid", "query", "topic", "topic_id"],
+            "query_id",
+        )?;
+        let doc_col = find_column_name(
+            obj,
+            map.docno.as_deref(),
+            &["doc_id", "docno", "doc", "document"],
+            "doc_id",
+        )?;
+        let rel_col = find_column_name(
+            obj,
+            map.score_or_rel.as_deref(),
+            &["relevance", "rel", "grade", "judgment", "label"],
+            "relevance",
+        )?;
+
+        let qid_series = obj.get_item(&qid_col)?;
+        let doc_series = obj.get_item(&doc_col)?;
+        let rel_series = obj.get_item(&rel_col)?;
+
+        let mut qid_iter = qid_series.iter()?;
+        let mut doc_iter = doc_series.iter()?;
+        let mut rel_iter = rel_series.iter()?;
+
+        let mut grouped: BTreeMap<String, BTreeMap<String, i64>> = BTreeMap::new();
+        while let (Some(q_res), Some(d_res), Some(r_res)) = (qid_iter.next(), doc_iter.next(), rel_iter.next()) {
+            let qid = q_res?.extract::<String>()?;
+            let docno = d_res?.extract::<String>()?;
+            let rel = r_res?.extract::<i64>()?;
+            grouped.entry(qid).or_default().insert(docno, rel);
+        }
+
+        let queries = grouped
+            .into_iter()
+            .map(|(qid, doc_map)| QrelsQuery {
+                qid,
+                records: doc_map
+                    .into_iter()
+                    .map(|(docno, rel)| QrelsRecord { docno, rel })
+                    .collect(),
+            })
+            .collect();
+
+        return Ok(QrelsData {
+            queries,
+            comments: Vec::new(),
+        });
+    }
+
+    // 4. Iterable of 3-tuples or objects with (query_id, doc_id, relevance)
     if let Ok(iter) = obj.iter() {
         return ingest_qrels_from_iter(iter);
     }
 
-
     Err(PyTypeError::new_err(
-        "Invalid qrels input: expected file path, nested dict (Dict[str, Dict[str, int]]), or iterable of (qid, doc_id, rel) triples"
+        "Invalid qrels input: expected file path, nested dict (Dict[str, Dict[str, int]]), DataFrame, or iterable of (qid, doc_id, rel) triples"
     ))
 }
+
 
 fn ingest_qrels_from_iter(iter: Bound<'_, PyIterator>) -> PyResult<QrelsData> {
     let mut grouped: BTreeMap<String, BTreeMap<String, i64>> = BTreeMap::new();
@@ -161,8 +254,8 @@ fn extract_qrel_item(item: &Bound<'_, PyAny>) -> PyResult<(String, String, i64)>
     Ok((qid, docno, rel))
 }
 
-/// Ingest run results from a Python object (file path, dict, or iterable).
-pub fn ingest_run(obj: &Bound<'_, PyAny>) -> PyResult<RunData> {
+/// Ingest run results from a Python object (file path, dict, DataFrame, or iterable).
+pub fn ingest_run(obj: &Bound<'_, PyAny>, mapping: Option<&ColumnMapping>) -> PyResult<RunData> {
     // 1. File path / PathLike
     if let Some(path_str) = extract_path_string(obj) {
         let path = Path::new(&path_str);
@@ -215,16 +308,99 @@ pub fn ingest_run(obj: &Bound<'_, PyAny>) -> PyResult<RunData> {
         });
     }
 
-    // 3. Iterable of 3-tuples or objects with (query_id, doc_id, score)
+    // 3. DataFrame (Pandas / Polars) with .columns
+    if obj.hasattr("columns").unwrap_or(false) {
+        let default_mapping = ColumnMapping::default();
+        let map = mapping.unwrap_or(&default_mapping);
+
+        let qid_col = find_column_name(
+            obj,
+            map.qid.as_deref(),
+            &["query_id", "qid", "query", "topic", "topic_id"],
+            "query_id",
+        )?;
+        let doc_col = find_column_name(
+            obj,
+            map.docno.as_deref(),
+            &["doc_id", "docno", "doc", "document"],
+            "doc_id",
+        )?;
+        let score_col = find_column_name(
+            obj,
+            map.score_or_rel.as_deref(),
+            &["score", "sim", "similarity", "rank_score"],
+            "score",
+        )?;
+
+        let qid_series = obj.get_item(&qid_col)?;
+        let doc_series = obj.get_item(&doc_col)?;
+        let score_series = obj.get_item(&score_col)?;
+
+        let mut qid_iter = qid_series.iter()?;
+        let mut doc_iter = doc_series.iter()?;
+        let mut score_iter = score_series.iter()?;
+
+        let mut grouped: BTreeMap<String, Vec<RunRecord>> = BTreeMap::new();
+        while let (Some(q_res), Some(d_res), Some(s_res)) = (qid_iter.next(), doc_iter.next(), score_iter.next()) {
+            let qid = q_res?.extract::<String>()?;
+            let docno = d_res?.extract::<String>()?;
+            let sim = s_res?.extract::<f64>()?;
+            grouped.entry(qid).or_default().push(RunRecord { docno, sim });
+        }
+
+        let queries = grouped
+            .into_iter()
+            .map(|(qid, records)| RunQuery { qid, records })
+            .collect();
+
+        return Ok(RunData {
+            run_id: "trec_eval".to_string(),
+            queries,
+            comments: Vec::new(),
+        });
+    }
+
+    // 4. Iterable of 3-tuples or objects with (query_id, doc_id, score)
     if let Ok(iter) = obj.iter() {
         return ingest_run_from_iter(iter);
     }
 
-
     Err(PyTypeError::new_err(
-        "Invalid run input: expected file path, nested dict (Dict[str, Dict[str, float]]), or iterable of (qid, doc_id, score) triples"
+        "Invalid run input: expected file path, nested dict (Dict[str, Dict[str, float]]), DataFrame, or iterable of (qid, doc_id, score) triples"
     ))
 }
+
+/// Ingest run results from 1D contiguous arrays/sequences of (query_ids, doc_ids, scores).
+pub fn ingest_run_arrays(
+    query_ids: &Bound<'_, PyAny>,
+    doc_ids: &Bound<'_, PyAny>,
+    scores: &Bound<'_, PyAny>,
+) -> PyResult<RunData> {
+    let mut grouped: BTreeMap<String, Vec<RunRecord>> = BTreeMap::new();
+
+    let mut qid_iter = query_ids.iter()?;
+    let mut doc_iter = doc_ids.iter()?;
+    let mut score_iter = scores.iter()?;
+
+    while let (Some(q_res), Some(d_res), Some(s_res)) = (qid_iter.next(), doc_iter.next(), score_iter.next()) {
+        let qid = q_res?.extract::<String>()?;
+        let docno = d_res?.extract::<String>()?;
+        let sim = s_res?.extract::<f64>()?;
+        grouped.entry(qid).or_default().push(RunRecord { docno, sim });
+    }
+
+    let queries = grouped
+        .into_iter()
+        .map(|(qid, records)| RunQuery { qid, records })
+        .collect();
+
+    Ok(RunData {
+        run_id: "trec_eval".to_string(),
+        queries,
+        comments: Vec::new(),
+    })
+}
+
 
 fn ingest_run_from_iter(iter: Bound<'_, PyIterator>) -> PyResult<RunData> {
     let mut grouped: BTreeMap<String, Vec<RunRecord>> = BTreeMap::new();

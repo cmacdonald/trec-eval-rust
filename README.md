@@ -1,6 +1,6 @@
 # trec-eval-rust
 
-A clean-room reimplementation of `trec_eval` in Rust, providing exact numerical parity with the standard Information Retrieval evaluation tool, a standalone command-line interface, and native high-performance Python bindings.
+A compatible reimplementation of `trec_eval` in Rust, providing identical usage and exact numerical parity with the standard Information Retrieval evaluation tool, a standalone command-line interface, and native high-performance Python bindings.
 
 ## Project Structure
 

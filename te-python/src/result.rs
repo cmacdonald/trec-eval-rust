@@ -1,9 +1,10 @@
 use std::collections::HashMap;
-use pyo3::exceptions::PyKeyError;
+use pyo3::exceptions::{PyImportError, PyKeyError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 use te_rust::eval::EvaluationOutput;
 use te_rust::metrics::MetricValue;
+
 
 
 /// Rich evaluation result object providing mapping semantics and aggregation methods.
@@ -145,6 +146,101 @@ impl EvalResult {
         Ok(items)
     }
 
+    /// Export results to a Pandas or Polars DataFrame.
+    ///
+    /// Parameters
+    /// ----------
+    /// format : str, default 'wide'
+    ///     'wide': one row per query, measures as columns
+    ///     'tidy' or 'long': (query_id, measure, value) triples
+    #[pyo3(signature = (format = "wide"))]
+    pub fn to_dataframe(&self, py: Python<'_>, format: &str) -> PyResult<PyObject> {
+        let fmt = format.to_ascii_lowercase();
+
+        let rows = PyList::empty_bound(py);
+
+        if fmt == "wide" {
+            for qid in &self.qids {
+                let row = PyDict::new_bound(py);
+                row.set_item("query_id", qid)?;
+                if let Some(scores) = self.query_scores.get(qid) {
+                    for (name, val) in scores {
+                        row.set_item(name, metric_to_py(py, val))?;
+                    }
+                }
+                rows.append(row)?;
+            }
+        } else if fmt == "tidy" || fmt == "long" {
+            for qid in &self.qids {
+                if let Some(scores) = self.query_scores.get(qid) {
+                    for (name, val) in scores {
+                        let row = PyDict::new_bound(py);
+                        row.set_item("query_id", qid)?;
+                        row.set_item("measure", name)?;
+                        row.set_item("value", metric_to_py(py, val))?;
+                        rows.append(row)?;
+                    }
+                }
+            }
+        } else {
+            return Err(PyValueError::new_err(format!(
+                "Invalid DataFrame format '{}'. Expected 'wide' or 'tidy'/'long'.",
+                format
+            )));
+        }
+
+        // Try importing pandas first
+        if let Ok(pd) = py.import_bound("pandas") {
+            let df = pd.call_method1("DataFrame", (rows,))?;
+            return Ok(df.into_any().unbind());
+        }
+
+        // Try importing polars
+        if let Ok(pl) = py.import_bound("polars") {
+            let df = pl.call_method1("DataFrame", (rows,))?;
+            return Ok(df.into_any().unbind());
+        }
+
+        Err(PyImportError::new_err(
+            "pandas or polars is required for .to_dataframe(). Install via 'pip install trec-eval[pandas]' or 'pip install pandas'."
+        ))
+    }
+
+    /// Return a 1D NumPy array of per-query scores for the specified measure.
+    ///
+    /// The array has guaranteed deterministic topic ordering matching .keys().
+    #[pyo3(signature = (measure))]
+    pub fn to_numpy(&self, py: Python<'_>, measure: &str) -> PyResult<PyObject> {
+        let mut vals = Vec::with_capacity(self.qids.len());
+
+        for qid in &self.qids {
+            let score = if let Some(scores) = self.query_scores.get(qid) {
+                if let Some(val) = scores.get(measure) {
+                    match val {
+                        MetricValue::Float(f) => *f,
+                        MetricValue::Integer(i) => *i as f64,
+                        _ => 0.0,
+                    }
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
+            vals.push(score);
+        }
+
+        if let Ok(np) = py.import_bound("numpy") {
+            let py_vals = PyList::new_bound(py, &vals);
+            let arr = np.call_method1("array", (py_vals,))?;
+            return Ok(arr.into_any().unbind());
+        }
+
+        // Fallback to pure Python list of floats if numpy is not installed
+        let py_vals = PyList::new_bound(py, &vals);
+        Ok(py_vals.into_any().unbind())
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "<EvalResult: {} queries evaluated, {} aggregate measures>",
@@ -152,4 +248,5 @@ impl EvalResult {
             self.aggregate_scores.len()
         )
     }
+
 }
