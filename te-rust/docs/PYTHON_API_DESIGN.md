@@ -455,7 +455,8 @@ comp = res_a.compare(res_b, measure="rr@5", test="permutation")
 
 ## 10. Web Documentation & Knowledge Base
 
-The Python project will include a unified, modern web documentation site (e.g. hosted on GitHub Pages or ReadTheDocs via MkDocs Material / Sphinx). This site will serve as the central reference for both the Python library and the underlying Rust CLI tool.
+The Python project will include a unified, modern web documentation site hosted on GitHub Pages (built with **Zensical**). This site will serve as the central reference for both the Python library and the underlying Rust CLI tool.
+
 
 ### 10.1 Documentation Scope & Structure
 
@@ -559,8 +560,9 @@ When implementing the Python package, work should be executed in well-scoped seq
 - Implement `trec_eval.compat.ir_measures` provider adapter.
 
 ### Stage 7: Web Documentation Site
-- Set up MkDocs Material / Sphinx documentation structure.
+- Set up Zensical documentation structure.
 - Document CLI reference, Python API, scientific workflows, custom measures, and measure catalog.
+
 
 ---
 
