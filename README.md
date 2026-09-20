@@ -142,3 +142,7 @@ evaluator = Evaluator(
 res1 = evaluator.evaluate("path/to/run1.txt")
 res2 = evaluator.evaluate("path/to/run2.txt")
 ```
+
+## Statement on AI-assisted design
+
+This project was started as perhaps my first major AI-assisted coding project. Both the design and the code were developed with the assistance of LLMs. The process was fundamentally interactive and adversarial -- I would prompt the model to propose designs, plans, or code, and those outputs were successively worked through multiple back-and-forth rounds, sometimes with different models giving opposing reviews. A helpful technique I found was to start an LLM interaction with a clean slate and ask a model to do a full code-review (or design review) without implying that anything was written with AI. All code was manually reviewed during development before inclusion, and I take full responsibility for the project.
