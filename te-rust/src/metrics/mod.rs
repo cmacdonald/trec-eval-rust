@@ -35,8 +35,12 @@ pub mod bin_g;
 pub mod ndcg_rel;
 pub mod rndcg;
 pub mod ndcg_p;
+pub mod map_avgjg;
+pub mod precision_avgjg;
+pub mod rprec_mult_avgjg;
 pub mod registry;
 pub mod invariants;
+
 
 use crate::eval::QueryEvalState;
 use crate::metrics::invariants::Invariant;
@@ -63,8 +67,10 @@ pub enum MetricValue {
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EvaluationType {
     Standard,
+    JudgmentGroups,
     Preferences,
 }
+
 
 #[derive(Debug, Clone)]
 pub struct EvalConfig {
@@ -96,7 +102,20 @@ impl Default for EvalConfig {
 #[derive(Debug, Clone)]
 pub enum EvalState {
     Standard(QueryEvalState),
+    JudgmentGroups(Vec<QueryEvalState>),
 }
+
+impl EvalState {
+    /// Return the standard QueryEvalState, or the first JG state if in JudgmentGroups mode.
+    pub fn get_standard(&self) -> Option<&QueryEvalState> {
+        match self {
+            EvalState::Standard(q) => Some(q),
+            EvalState::JudgmentGroups(jgs) => jgs.first(),
+        }
+    }
+}
+
+
 
 pub trait Measure: Send + Sync {
     /// Unique root name of the measure (e.g. "map", "P").

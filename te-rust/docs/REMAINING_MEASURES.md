@@ -56,9 +56,10 @@ Descriptive measures capturing pool coverage or unjudged proportions.
 ## 6. Judgment Group (JG) / Agreement Measures
 Agreement measures over multiple relevance judgment pools.
 
-- [ ] **`map_avgjg`** (`m_map_avgjg.c`): MAP averaged across multiple judgment groups.
-- [ ] **`P_avgjg`** (`m_P_avgjg.c`): Precision averaged across multiple judgment groups.
-- [ ] **`Rprec_mult_avgjg`** (`m_Rprec_mult_avgjg.c`): R-precision multiples averaged across multiple judgment groups.
+- [x] **`map_avgjg`** (`m_map_avgjg.c`): MAP averaged across multiple judgment groups.
+- [x] **`P_avgjg`** (`m_P_avgjg.c`): Precision averaged across multiple judgment groups.
+- [x] **`Rprec_mult_avgjg`** (`m_Rprec_mult_avgjg.c`): R-precision multiples averaged across multiple judgment groups.
+
 
 ---
 
