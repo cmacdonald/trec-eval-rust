@@ -42,63 +42,65 @@ impl Measure for IprecAtRecallMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let num_params = self.cutoff_percents.len();
-                let mut results = vec![0.0; num_params];
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                if q_state.num_rel == 0 {
-                    return results.into_iter().map(MetricValue::Float).collect();
-                }
+        let num_params = self.cutoff_percents.len();
+        let mut results = vec![0.0; num_params];
 
-                // 1. Translate percentage of rels to actual cutoff counts of relevant documents using lround/round
-                let cutoffs: Vec<i64> = self.cutoff_percents
-                    .iter()
-                    .map(|&p| (p * q_state.num_rel as f64).round() as i64)
-                    .collect();
+        if q_state.num_rel == 0 {
+            return results.into_iter().map(MetricValue::Float).collect();
+        }
 
-                let mut current_cut = (num_params as i64) - 1;
+        // 1. Translate percentage of rels to actual cutoff counts of relevant documents using lround/round
+        let cutoffs: Vec<i64> = self.cutoff_percents
+            .iter()
+            .map(|&p| (p * q_state.num_rel as f64).round() as i64)
+            .collect();
 
-                // 2. Adjust starting cutoff point if we didn't retrieve enough relevant documents
-                while current_cut >= 0 && cutoffs[current_cut as usize] > (q_state.num_rel_ret as i64) {
-                    current_cut -= 1;
-                }
+        let mut current_cut = (num_params as i64) - 1;
 
-                // 3. Loop in reverse order to calculate the online MAX (interpolated) precision
-                let mut precis = if q_state.num_ret > 0 {
-                    (q_state.num_rel_ret as f64) / (q_state.num_ret as f64)
-                } else {
-                    0.0
-                };
-                let mut int_precis = precis;
-                let mut rel_so_far = q_state.num_rel_ret;
+        // 2. Adjust starting cutoff point if we didn't retrieve enough relevant documents
+        while current_cut >= 0 && cutoffs[current_cut as usize] > (q_state.num_rel_ret as i64) {
+            current_cut -= 1;
+        }
 
-                for i in (1..=q_state.num_ret).rev() {
-                    precis = (rel_so_far as f64) / (i as f64);
-                    if precis > int_precis {
-                        int_precis = precis;
-                    }
-                    if q_state.results_rel_list[i - 1] >= config.relevance_level {
-                        while current_cut >= 0 && (rel_so_far as i64) == cutoffs[current_cut as usize] {
-                            results[current_cut as usize] = int_precis;
-                            current_cut -= 1;
-                        }
-                        if rel_so_far > 0 {
-                            rel_so_far -= 1;
-                        }
-                    }
-                }
+        // 3. Loop in reverse order to calculate the online MAX (interpolated) precision
+        let mut precis = if q_state.num_ret > 0 {
+            (q_state.num_rel_ret as f64) / (q_state.num_ret as f64)
+        } else {
+            0.0
+        };
+        let mut int_precis = precis;
+        let mut rel_so_far = q_state.num_rel_ret;
 
-                // 4. Fill in any remaining unreached cutoffs (such as recall 0.0)
-                while current_cut >= 0 {
+        for i in (1..=q_state.num_ret).rev() {
+            precis = (rel_so_far as f64) / (i as f64);
+            if precis > int_precis {
+                int_precis = precis;
+            }
+            if q_state.results_rel_list[i - 1] >= config.relevance_level {
+                while current_cut >= 0 && (rel_so_far as i64) == cutoffs[current_cut as usize] {
                     results[current_cut as usize] = int_precis;
                     current_cut -= 1;
                 }
-
-                results.into_iter().map(MetricValue::Float).collect()
+                if rel_so_far > 0 {
+                    rel_so_far -= 1;
+                }
             }
         }
+
+        // 4. Fill in any remaining unreached cutoffs (such as recall 0.0)
+        while current_cut >= 0 {
+            results[current_cut as usize] = int_precis;
+            current_cut -= 1;
+        }
+
+        results.into_iter().map(MetricValue::Float).collect()
     }
+
 }
 
 impl Default for IprecAtRecallMeasure {

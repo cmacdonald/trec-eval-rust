@@ -42,23 +42,23 @@ impl Measure for YaapMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut sum = 0.0;
-                let mut rel_so_far = 0;
+        if let Some(q_state) = state.get_standard() {
+            let mut sum = 0.0;
+            let mut rel_so_far = 0;
 
-                for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
-                    if rel >= config.relevance_level {
-                        rel_so_far += 1;
-                        sum += (rel_so_far as f64) / (i + 1) as f64;
-                    }
+            for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
+                if rel >= config.relevance_level {
+                    rel_so_far += 1;
+                    sum += (rel_so_far as f64) / (i + 1) as f64;
                 }
-
-                let num_rel = q_state.num_rel as f64;
-                let val = ((1.0 + sum) / (1.0 + num_rel - sum)).ln();
-
-                vec![MetricValue::Float(val)]
             }
+
+            let num_rel = q_state.num_rel as f64;
+            let val = ((1.0 + sum) / (1.0 + num_rel - sum)).ln();
+
+            vec![MetricValue::Float(val)]
+        } else {
+            self.initial_values()
         }
     }
 }

@@ -38,52 +38,53 @@ impl Measure for InfAPMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut nonrel_so_far = 0;
-                let mut rel_so_far = 0;
-                let mut pool_unjudged_so_far = 0;
-                let mut inf_ap = 0.0;
-                let epsilon = 0.00001;
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                for (j, &rel) in q_state.results_rel_list.iter().enumerate() {
-                    if rel == crate::eval::alignment::RELVALUE_NONPOOL {
-                        continue;
-                    }
-                    if rel == crate::eval::alignment::RELVALUE_UNJUDGED {
-                        pool_unjudged_so_far += 1;
-                        continue;
-                    }
+        let mut nonrel_so_far = 0;
+        let mut rel_so_far = 0;
+        let mut pool_unjudged_so_far = 0;
+        let mut inf_ap = 0.0;
+        let epsilon = 0.00001;
 
-                    if rel >= 0 && rel < config.relevance_level {
-                        nonrel_so_far += 1;
-                    } else {
-                        rel_so_far += 1;
-                        if j == 0 {
-                            inf_ap += 1.0;
-                        } else {
-                            let fj = j as f64;
-                            let term1 = 1.0 / (fj + 1.0);
-                            let term2 = fj / (fj + 1.0);
-                            let numer_p = (rel_so_far - 1 + nonrel_so_far + pool_unjudged_so_far) as f64;
-                            let ratio_p = numer_p / fj;
-                            let rel_term = (rel_so_far - 1) as f64;
-                            let nonrel_term = nonrel_so_far as f64;
-                            let ratio_rel = (rel_term + epsilon) / (rel_term + nonrel_term + 2.0 * epsilon);
-                            inf_ap += term1 + term2 * ratio_p * ratio_rel;
-                        }
-                    }
-                }
+        for (j, &rel) in q_state.results_rel_list.iter().enumerate() {
+            if rel == crate::eval::alignment::RELVALUE_NONPOOL {
+                continue;
+            }
+            if rel == crate::eval::alignment::RELVALUE_UNJUDGED {
+                pool_unjudged_so_far += 1;
+                continue;
+            }
 
-                if q_state.num_rel > 0 {
-                    inf_ap /= q_state.num_rel as f64;
+            if rel >= 0 && rel < config.relevance_level {
+                nonrel_so_far += 1;
+            } else {
+                rel_so_far += 1;
+                if j == 0 {
+                    inf_ap += 1.0;
                 } else {
-                    inf_ap = 0.0;
+                    let fj = j as f64;
+                    let term1 = 1.0 / (fj + 1.0);
+                    let term2 = fj / (fj + 1.0);
+                    let numer_p = (rel_so_far - 1 + nonrel_so_far + pool_unjudged_so_far) as f64;
+                    let ratio_p = numer_p / fj;
+                    let rel_term = (rel_so_far - 1) as f64;
+                    let nonrel_term = nonrel_so_far as f64;
+                    let ratio_rel = (rel_term + epsilon) / (rel_term + nonrel_term + 2.0 * epsilon);
+                    inf_ap += term1 + term2 * ratio_p * ratio_rel;
                 }
-
-                vec![MetricValue::Float(inf_ap)]
             }
         }
+
+        if q_state.num_rel > 0 {
+            inf_ap /= q_state.num_rel as f64;
+        } else {
+            inf_ap = 0.0;
+        }
+
+        vec![MetricValue::Float(inf_ap)]
     }
 }
 

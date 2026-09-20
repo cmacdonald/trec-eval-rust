@@ -46,27 +46,27 @@ impl Measure for GMMapMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut rel_so_far = 0;
-                let mut sum = 0.0;
+        if let Some(q_state) = state.get_standard() {
+            let mut rel_so_far = 0;
+            let mut sum = 0.0;
 
-                for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
-                    if rel >= config.relevance_level {
-                        rel_so_far += 1;
-                        sum += (rel_so_far as f64) / (i + 1) as f64;
-                    }
+            for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
+                if rel >= config.relevance_level {
+                    rel_so_far += 1;
+                    sum += (rel_so_far as f64) / (i + 1) as f64;
                 }
-
-                let ap = if q_state.num_rel > 0 && rel_so_far > 0 {
-                    sum / (q_state.num_rel as f64)
-                } else {
-                    0.0
-                };
-
-                let val = ap.max(0.00001).ln();
-                vec![MetricValue::Float(val)]
             }
+
+            let ap = if q_state.num_rel > 0 && rel_so_far > 0 {
+                sum / (q_state.num_rel as f64)
+            } else {
+                0.0
+            };
+
+            let val = ap.max(0.00001).ln();
+            vec![MetricValue::Float(val)]
+        } else {
+            self.initial_values()
         }
     }
 

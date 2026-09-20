@@ -41,16 +41,16 @@ impl Measure for SetMapMeasure {
     }
 
     fn calc(&self, _config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let score = if q_state.num_ret > 0 && q_state.num_rel > 0 {
-                    let rel_ret = q_state.num_rel_ret as f64;
-                    (rel_ret * rel_ret) / ((q_state.num_ret as f64) * (q_state.num_rel as f64))
-                } else {
-                    0.0
-                };
-                vec![MetricValue::Float(score)]
-            }
+        if let Some(q_state) = state.get_standard() {
+            let score = if q_state.num_ret > 0 && q_state.num_rel > 0 {
+                let rel_ret = q_state.num_rel_ret as f64;
+                (rel_ret * rel_ret) / ((q_state.num_ret as f64) * (q_state.num_rel as f64))
+            } else {
+                0.0
+            };
+            vec![MetricValue::Float(score)]
+        } else {
+            self.initial_values()
         }
     }
 }

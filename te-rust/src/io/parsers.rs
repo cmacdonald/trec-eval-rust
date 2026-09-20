@@ -73,8 +73,27 @@ pub struct QrelsData {
     pub comments: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QrelsJGGroup {
+    pub jg: String,
+    pub records: Vec<QrelsRecord>,
+}
+
+#[derive(Debug, Clone)]
+pub struct QrelsJGQuery {
+    pub qid: String,
+    pub groups: Vec<QrelsJGGroup>,
+}
+
+#[derive(Debug, Clone)]
+pub struct QrelsJGData {
+    pub queries: Vec<QrelsJGQuery>,
+    pub comments: Vec<String>,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RunRecord {
+
     pub docno: String,
     pub sim: f64,
 }
@@ -220,7 +239,141 @@ pub fn parse_trec_qrels<P: AsRef<Path>>(path: P) -> Result<QrelsData, IOError> {
     Ok(QrelsData { queries, comments })
 }
 
+struct RawQrelsJG {
+    qid: String,
+    jg: String,
+    docno: String,
+    rel: i64,
+    line_num: usize,
+}
+
+/// Parses judgment groups qrels format (qid  jg  docno  rel).
+pub fn parse_trec_qrels_jg<P: AsRef<Path>>(path: P) -> Result<QrelsJGData, IOError> {
+    let file = File::open(path).map_err(IOError::FileReadError)?;
+    let reader = BufReader::new(file);
+    let mut raw_records = Vec::new();
+    let mut comments = Vec::new();
+    let mut line_num = 0;
+
+    for line_res in reader.lines() {
+        line_num += 1;
+        let line = line_res.map_err(IOError::FileReadError)?;
+        let trimmed = line.trim();
+
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if trimmed.starts_with('#') {
+            comments.push(trimmed[1..].to_string());
+            continue;
+        }
+
+        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+        if parts.len() != 4 {
+            return Err(IOError::FormatError(ParseError::InvalidFieldCount {
+                line_num,
+                expected: 4,
+                found: parts.len(),
+            }));
+        }
+
+        let qid = parts[0].to_string();
+        let jg = parts[1].to_string();
+        let docno = parts[2].to_string();
+        let rel_str = parts[3];
+
+        let rel = rel_str.parse::<i64>().map_err(|_| {
+            IOError::FormatError(ParseError::InvalidInteger {
+                line_num,
+                field: "rel".to_string(),
+                value: rel_str.to_string(),
+            })
+        })?;
+
+        if rel < -1_000_000 || rel > 1_000_000 {
+            return Err(IOError::FormatError(ParseError::RelevanceOutOfBounds {
+                line_num,
+                value: rel,
+            }));
+        }
+
+        raw_records.push(RawQrelsJG {
+            qid,
+            jg,
+            docno,
+            rel,
+            line_num,
+        });
+    }
+
+    if raw_records.is_empty() {
+        return Err(IOError::FormatError(ParseError::EmptyFile));
+    }
+
+    // Sort by qid first, then jg, then docno lexicographically ascending
+    raw_records.sort_by(|a, b| {
+        match a.qid.cmp(&b.qid) {
+            std::cmp::Ordering::Equal => match a.jg.cmp(&b.jg) {
+                std::cmp::Ordering::Equal => a.docno.cmp(&b.docno),
+                other => mt_cmp_order(other),
+            },
+            other => mt_cmp_order(other),
+        }
+    });
+
+    // Validate duplicate documents under same query and judgment group
+    for i in 1..raw_records.len() {
+        if raw_records[i].qid == raw_records[i - 1].qid
+            && raw_records[i].jg == raw_records[i - 1].jg
+            && raw_records[i].docno == raw_records[i - 1].docno
+        {
+            return Err(IOError::FormatError(ParseError::DuplicateDocument {
+                line_num: raw_records[i].line_num,
+                qid: raw_records[i].qid.clone(),
+                docno: raw_records[i].docno.clone(),
+            }));
+        }
+    }
+
+    // Group into QrelsJGQuery and QrelsJGGroup in a linear pass
+    let mut queries: Vec<QrelsJGQuery> = Vec::new();
+
+    for raw in raw_records {
+        if let Some(last_q) = queries.last_mut().filter(|q| q.qid == raw.qid) {
+            if let Some(last_g) = last_q.groups.last_mut().filter(|g| g.jg == raw.jg) {
+                last_g.records.push(QrelsRecord {
+                    docno: raw.docno,
+                    rel: raw.rel,
+                });
+            } else {
+                last_q.groups.push(QrelsJGGroup {
+                    jg: raw.jg,
+                    records: vec![QrelsRecord {
+                        docno: raw.docno,
+                        rel: raw.rel,
+                    }],
+                });
+            }
+        } else {
+            queries.push(QrelsJGQuery {
+                qid: raw.qid,
+                groups: vec![QrelsJGGroup {
+                    jg: raw.jg,
+                    records: vec![QrelsRecord {
+                        docno: raw.docno,
+                        rel: raw.rel,
+                    }],
+                }],
+            });
+        }
+    }
+
+    Ok(QrelsJGData { queries, comments })
+}
+
 /// Parses standard results (run) file format.
+
 pub fn parse_trec_run<P: AsRef<Path>>(path: P) -> Result<RunData, IOError> {
     let file = File::open(path).map_err(IOError::FileReadError)?;
     let reader = BufReader::new(file);

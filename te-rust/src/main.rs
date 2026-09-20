@@ -2,10 +2,11 @@ use clap::Parser;
 use std::process;
 
 use te_rust::eval::bootstrap::BootstrapConfig;
-use te_rust::eval::evaluate_run;
-use te_rust::io::{parse_trec_qrels, parse_trec_run};
+use te_rust::eval::{evaluate_run, evaluate_run_jg};
+use te_rust::io::{parse_trec_qrels, parse_trec_qrels_jg, parse_trec_run};
 use te_rust::metrics::{EvalConfig, MetricValue, ValueFormat};
 use te_rust::metrics;
+
 
 
 
@@ -76,8 +77,13 @@ struct Args {
     #[arg(long = "help-measure", value_name = "name")]
     help_measure: Option<String>,
 
+    /// Format of the relevance judgments file (e.g. qrels, qrels_jg, prefs, qrels_prefs)
+    #[arg(short = 'R', long = "rel-format", default_value = "qrels")]
+    rel_format: String,
+
     /// Path to relevance judgments (qrels) file
     qrels_file: Option<String>,
+
 
     /// Path to run results file
     run_file: Option<String>,
@@ -151,15 +157,7 @@ fn main() {
         }
     };
 
-    // 3. Ingest inputs
-    let qrels_data = match parse_trec_qrels(&qrels_filename) {
-        Ok(data) => data,
-        Err(e) => {
-            eprintln!("Error parsing qrels file '{}': {}", qrels_filename, e);
-            process::exit(1);
-        }
-    };
-
+    // 3. Ingest run results
     let run_data = match parse_trec_run(&run_filename) {
         Ok(data) => data,
         Err(e) => {
@@ -169,8 +167,13 @@ fn main() {
     };
 
     // 4. Resolve measures (groups + parameters) via the central registry.
+    let default_group = match args.rel_format.to_ascii_lowercase().as_str() {
+        "qrels_jg" => "qrels_jg",
+        _ => "official",
+    };
+
     let requested_names: Vec<String> = if args.measures.is_empty() {
-        vec!["official".to_string()]
+        vec![default_group.to_string()]
     } else {
         args.measures.clone()
     };
@@ -182,7 +185,6 @@ fn main() {
             process::exit(1);
         }
     };
-
 
     // 5. Setup runtime config
     let global_gains = args.global_gains.as_ref().map(|s| crate::metrics::common::GainsConfig::parse(s));
@@ -208,8 +210,34 @@ fn main() {
         None
     };
 
-    // 6. Run evaluation engine
-    let output = evaluate_run(&qrels_data, &run_data, &active_measures, &config, ci_config.as_ref());
+    // 6. Run evaluation engine based on relevance judgment format
+    let output = match args.rel_format.to_ascii_lowercase().as_str() {
+        "qrels_jg" => {
+            let qrels_jg_data = match parse_trec_qrels_jg(&qrels_filename) {
+                Ok(data) => data,
+                Err(e) => {
+                    eprintln!("Error parsing qrels_jg file '{}': {}", qrels_filename, e);
+                    process::exit(1);
+                }
+            };
+            evaluate_run_jg(&qrels_jg_data, &run_data, &active_measures, &config, ci_config.as_ref())
+        }
+        "qrels" => {
+            let qrels_data = match parse_trec_qrels(&qrels_filename) {
+                Ok(data) => data,
+                Err(e) => {
+                    eprintln!("Error parsing qrels file '{}': {}", qrels_filename, e);
+                    process::exit(1);
+                }
+            };
+            evaluate_run(&qrels_data, &run_data, &active_measures, &config, ci_config.as_ref())
+        }
+        other => {
+            eprintln!("te-rust: Unsupported relevance judgments format '{}'", other);
+            process::exit(1);
+        }
+    };
+
 
     // 7. Print query results
     if config.query_flag {

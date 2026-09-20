@@ -1,6 +1,7 @@
-use crate::io::{QrelsQuery, RunQuery};
+use crate::io::{QrelsJGQuery, QrelsQuery, RunQuery};
 
 pub const RELVALUE_NONPOOL: i64 = -1;
+
 pub const RELVALUE_UNJUDGED: i64 = -2;
 
 /// Aligned evaluation state for a single query topic.
@@ -181,3 +182,33 @@ pub fn align_query(
         rel_levels,
     }
 }
+
+/// Aligns standard run results with judgment group relevance judgments for a single query.
+pub fn align_query_jg(
+    run_query: Option<&RunQuery>,
+    qrels_jg_query: &QrelsJGQuery,
+    run_id: &str,
+    relevance_level_cutoff: i64,
+    max_docs_per_topic: usize,
+    judged_docs_only_flag: bool,
+) -> Vec<QueryEvalState> {
+    qrels_jg_query
+        .groups
+        .iter()
+        .map(|group| {
+            let single_q = QrelsQuery {
+                qid: qrels_jg_query.qid.clone(),
+                records: group.records.clone(),
+            };
+            align_query(
+                run_query,
+                &single_q,
+                run_id,
+                relevance_level_cutoff,
+                max_docs_per_topic,
+                judged_docs_only_flag,
+            )
+        })
+        .collect()
+}
+

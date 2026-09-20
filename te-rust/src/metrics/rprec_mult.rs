@@ -42,53 +42,55 @@ impl Measure for RprecMultMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let num_params = self.cutoff_percents.len();
-                let mut results = vec![0.0; num_params];
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                if q_state.num_rel == 0 {
-                    return results.into_iter().map(MetricValue::Float).collect();
+        let num_params = self.cutoff_percents.len();
+        let mut results = vec![0.0; num_params];
+
+        if q_state.num_rel == 0 {
+            return results.into_iter().map(MetricValue::Float).collect();
+        }
+
+        // 1. Convert percentages to integer rank cutoffs using C's + 0.9 cast rounding
+        let cutoffs: Vec<i64> = self.cutoff_percents
+            .iter()
+            .map(|&p| (p * q_state.num_rel as f64 + 0.9) as i64)
+            .collect();
+
+        let mut current_cut = (num_params as i64) - 1;
+
+        // 2. Pre-fill any cutoffs that exceed the retrieved length
+        while current_cut >= 0 && cutoffs[current_cut as usize] > (q_state.num_ret as i64) {
+            let cutoff = cutoffs[current_cut as usize];
+            results[current_cut as usize] = if cutoff > 0 {
+                (q_state.num_rel_ret as f64) / (cutoff as f64)
+            } else {
+                0.0
+            };
+            current_cut -= 1;
+        }
+
+        // 3. Scan the retrieved documents backwards to compute precision at exact cutoffs
+        let mut rel_so_far = q_state.num_rel_ret;
+        for i in (1..=q_state.num_ret).rev() {
+            let precis = (rel_so_far as f64) / (i as f64);
+            while current_cut >= 0 && (i as i64) == cutoffs[current_cut as usize] {
+                results[current_cut as usize] = precis;
+                current_cut -= 1;
+            }
+            if q_state.results_rel_list[i - 1] >= config.relevance_level {
+                if rel_so_far > 0 {
+                    rel_so_far -= 1;
                 }
-
-                // 1. Convert percentages to integer rank cutoffs using C's + 0.9 cast rounding
-                let cutoffs: Vec<i64> = self.cutoff_percents
-                    .iter()
-                    .map(|&p| (p * q_state.num_rel as f64 + 0.9) as i64)
-                    .collect();
-
-                let mut current_cut = (num_params as i64) - 1;
-
-                // 2. Pre-fill any cutoffs that exceed the retrieved length
-                while current_cut >= 0 && cutoffs[current_cut as usize] > (q_state.num_ret as i64) {
-                    let cutoff = cutoffs[current_cut as usize];
-                    results[current_cut as usize] = if cutoff > 0 {
-                        (q_state.num_rel_ret as f64) / (cutoff as f64)
-                    } else {
-                        0.0
-                    };
-                    current_cut -= 1;
-                }
-
-                // 3. Scan the retrieved documents backwards to compute precision at exact cutoffs
-                let mut rel_so_far = q_state.num_rel_ret;
-                for i in (1..=q_state.num_ret).rev() {
-                    let precis = (rel_so_far as f64) / (i as f64);
-                    while current_cut >= 0 && (i as i64) == cutoffs[current_cut as usize] {
-                        results[current_cut as usize] = precis;
-                        current_cut -= 1;
-                    }
-                    if q_state.results_rel_list[i - 1] >= config.relevance_level {
-                        if rel_so_far > 0 {
-                            rel_so_far -= 1;
-                        }
-                    }
-                }
-
-                results.into_iter().map(MetricValue::Float).collect()
             }
         }
+
+        results.into_iter().map(MetricValue::Float).collect()
     }
+
 }
 
 impl Default for RprecMultMeasure {

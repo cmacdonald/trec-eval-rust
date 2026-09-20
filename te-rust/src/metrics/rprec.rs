@@ -38,26 +38,26 @@ impl Measure for RprecMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let r = q_state.num_rel;
-                let mut rel_ret_at_r = 0;
+        if let Some(q_state) = state.get_standard() {
+            let r = q_state.num_rel;
+            let mut rel_ret_at_r = 0;
 
-                let limit = std::cmp::min(r, q_state.results_rel_list.len());
-                for i in 0..limit {
-                    if q_state.results_rel_list[i] >= config.relevance_level {
-                        rel_ret_at_r += 1;
-                    }
+            let limit = std::cmp::min(r, q_state.results_rel_list.len());
+            for i in 0..limit {
+                if q_state.results_rel_list[i] >= config.relevance_level {
+                    rel_ret_at_r += 1;
                 }
-
-                let score = if r > 0 {
-                    (rel_ret_at_r as f64) / (r as f64)
-                } else {
-                    0.0
-                };
-
-                vec![MetricValue::Float(score)]
             }
+
+            let score = if r > 0 {
+                (rel_ret_at_r as f64) / (r as f64)
+            } else {
+                0.0
+            };
+
+            vec![MetricValue::Float(score)]
+        } else {
+            self.initial_values()
         }
     }
 }

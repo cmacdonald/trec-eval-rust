@@ -42,19 +42,20 @@ impl Measure for PrecisionCutMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut results = Vec::with_capacity(self.cutoffs.len());
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                for &c in &self.cutoffs {
-                    let rel_ret = super::common::count_relevant_retrieved_up_to(&q_state.results_rel_list, c, config);
-                    let precision = (rel_ret as f64) / (c as f64);
-                    results.push(MetricValue::Float(precision));
-                }
+        let mut results = Vec::with_capacity(self.cutoffs.len());
 
-                results
-            }
+        for &c in &self.cutoffs {
+            let rel_ret = super::common::count_relevant_retrieved_up_to(&q_state.results_rel_list, c, config);
+            let precision = (rel_ret as f64) / (c as f64);
+            results.push(MetricValue::Float(precision));
         }
+
+        results
     }
 }
 

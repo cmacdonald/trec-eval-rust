@@ -42,34 +42,35 @@ impl Measure for UnjMeasure {
     }
 
     fn calc(&self, _config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut results = vec![0.0; self.cutoffs.len()];
-                let mut cutoff_index = 0;
-                let mut unj_so_far = 0;
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
-                    if cutoff_index < self.cutoffs.len() && i == self.cutoffs[cutoff_index] {
-                        results[cutoff_index] = (unj_so_far as f64) / (i as f64);
-                        cutoff_index += 1;
-                        while cutoff_index < self.cutoffs.len() && i == self.cutoffs[cutoff_index] {
-                            results[cutoff_index] = (unj_so_far as f64) / (i as f64);
-                            cutoff_index += 1;
-                        }
-                    }
-                    if rel == crate::eval::alignment::RELVALUE_NONPOOL || rel == crate::eval::alignment::RELVALUE_UNJUDGED {
-                        unj_so_far += 1;
-                    }
-                }
+        let mut results = vec![0.0; self.cutoffs.len()];
+        let mut cutoff_index = 0;
+        let mut unj_so_far = 0;
 
-                while cutoff_index < self.cutoffs.len() {
-                    results[cutoff_index] = (unj_so_far as f64) / (self.cutoffs[cutoff_index] as f64);
+        for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
+            if cutoff_index < self.cutoffs.len() && i == self.cutoffs[cutoff_index] {
+                results[cutoff_index] = (unj_so_far as f64) / (i as f64);
+                cutoff_index += 1;
+                while cutoff_index < self.cutoffs.len() && i == self.cutoffs[cutoff_index] {
+                    results[cutoff_index] = (unj_so_far as f64) / (i as f64);
                     cutoff_index += 1;
                 }
-
-                results.into_iter().map(MetricValue::Float).collect()
+            }
+            if rel == crate::eval::alignment::RELVALUE_NONPOOL || rel == crate::eval::alignment::RELVALUE_UNJUDGED {
+                unj_so_far += 1;
             }
         }
+
+        while cutoff_index < self.cutoffs.len() {
+            results[cutoff_index] = (unj_so_far as f64) / (self.cutoffs[cutoff_index] as f64);
+            cutoff_index += 1;
+        }
+
+        results.into_iter().map(MetricValue::Float).collect()
     }
 }
 

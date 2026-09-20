@@ -192,7 +192,21 @@ pub fn registry() -> &'static [MeasureSpec] {
         MeasureSpec { name: "ndcg_p", status: Production, usage: "ndcg_p[.<rel>=<gain>,...]  optional relevance-to-gain mapping (default: gain = relevance level)", factory: |p| Ok(Box::new(metrics::ndcg_p::NdcgPMeasure::new(p))) },
         MeasureSpec { name: "rbp", status: Production, usage: "rbp[.p=<float>]  persistence parameter p (default: 0.9)", factory: |p| Ok(Box::new(metrics::rbp::RbpMeasure::new(parse_rbp_p(p)?, p))) },
         MeasureSpec { name: "rbp_resid", status: Production, usage: "rbp_resid[.p=<float>]  persistence parameter p (default: 0.9)", factory: |p| Ok(Box::new(metrics::rbp_resid::RbpResidMeasure::new(parse_rbp_p(p)?, p))) },
+        MeasureSpec { name: "map_avgjg", status: Production, usage: "", factory: |_| Ok(Box::new(metrics::map_avgjg::MapAvgjgMeasure::new())) },
+        MeasureSpec {
+            name: "P_avgjg",
+            status: Production,
+            usage: "P_avgjg[.<c1,c2,...>]  precision at integer rank cutoffs averaged over JGs (default: 5,10,15,20,30,100,200,500,1000)",
+            factory: |p| Ok(Box::new(metrics::precision_avgjg::PrecisionAvgjgMeasure::new(parse_int_cutoffs(p, DEFAULT_RANK_CUTOFFS)?))),
+        },
+        MeasureSpec {
+            name: "Rprec_mult_avgjg",
+            status: Production,
+            usage: "Rprec_mult_avgjg[.<m1,m2,...>]  R-precision at multiples of R averaged over JGs (default: 0.2,0.4,...,2.0)",
+            factory: |p| Ok(Box::new(metrics::rprec_mult_avgjg::RprecMultAvgjgMeasure::new(parse_float_cutoffs(p, DEFAULT_RPREC_MULT)?))),
+        },
         MeasureSpec { name: "yaap", status: Experimental, usage: "", factory: |_| Ok(Box::new(metrics::yaap::YaapMeasure::new())) },
+
         MeasureSpec { name: "binG", status: Experimental, usage: "", factory: |_| Ok(Box::new(metrics::bin_g::BinGMeasure::new())) },
     ]
 }
@@ -213,7 +227,9 @@ pub fn expand_group(name: &str) -> Option<&'static [&'static str]> {
     match name.to_ascii_lowercase().as_str() {
         "official" => Some(&["runid", "num_ret", "num_rel", "num_rel_ret", "map", "Rprec", "recip_rank", "bpref", "P"]),
         "set" => Some(&["runid", "num_ret", "num_rel", "num_rel_ret", "set_relative_P", "set_map", "set_F"]),
+        "qrels_jg" => Some(&["map_avgjg", "P_avgjg", "Rprec_mult_avgjg"]),
         "all_trec" => Some(&[
+
             "runid", "num_ret", "num_rel", "num_rel_ret", "map", "Rprec", "recip_rank", "bpref", "P",
             "ndcg_cut", "ndcg", "recall", "success", "11pt_avg", "utility", "relstring",
             "set_relative_P", "set_map", "set_F",
@@ -246,6 +262,12 @@ fn canonicalize_measure_spec(arg: &str) -> (String, String) {
                 return ("P".to_string(), rest.to_string());
             }
         }
+        if let Some(rest) = arg_lower.strip_prefix("p_avgjg_") {
+            if rest.chars().all(|c| c.is_ascii_digit() || c == ',') {
+                return ("P_avgjg".to_string(), rest.to_string());
+            }
+        }
+
         if let Some(rest) = arg_lower.strip_prefix("ndcg_cut_") {
             if rest.chars().all(|c| c.is_ascii_digit() || c == ',') {
                 return ("ndcg_cut".to_string(), rest.to_string());
@@ -333,8 +355,9 @@ mod tests {
 
     #[test]
     fn groups_contain_only_production_measures() {
-        for group in ["official", "set", "all_trec"] {
+        for group in ["official", "set", "qrels_jg", "all_trec"] {
             for name in expand_group(group).unwrap() {
+
                 let spec = find_spec(name).unwrap_or_else(|| panic!("group '{}' names unknown measure '{}'", group, name));
                 assert_eq!(
                     spec.status,

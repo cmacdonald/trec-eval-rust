@@ -48,19 +48,23 @@ impl Measure for NdcgCutMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let gains_config = if !self.gains_config.custom_gains.is_empty() {
-                    &self.gains_config
-                } else if let Some(ref gg) = config.global_gains {
-                    gg
-                } else {
-                    &self.gains_config
-                };
-                let gains = Gains::setup(gains_config, &q_state.rel_levels);
-                let num_params = self.cutoffs.len();
-                let mut dcgs = vec![0.0; num_params];
-                let mut idcgs = vec![0.0; num_params];
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
+
+        let gains_config = if !self.gains_config.custom_gains.is_empty() {
+            &self.gains_config
+        } else if let Some(ref gg) = config.global_gains {
+            gg
+        } else {
+            &self.gains_config
+        };
+        let gains = Gains::setup(gains_config, &q_state.rel_levels);
+        let num_params = self.cutoffs.len();
+        let mut dcgs = vec![0.0; num_params];
+        let mut idcgs = vec![0.0; num_params];
+
 
                 // 1. Calculate DCG at each cutoff
                 let mut cutoff_index = 0;
@@ -137,10 +141,9 @@ impl Measure for NdcgCutMeasure {
                 }
 
                 results
-            }
-        }
     }
 }
+
 
 impl Default for NdcgCutMeasure {
     fn default() -> Self {

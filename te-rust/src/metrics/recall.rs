@@ -42,24 +42,25 @@ impl Measure for RecallCutMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut results = Vec::with_capacity(self.cutoffs.len());
-                let num_rel = q_state.num_rel;
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                for &c in &self.cutoffs {
-                    let rel_ret = super::common::count_relevant_retrieved_up_to(&q_state.results_rel_list, c, config);
-                    let recall = if num_rel > 0 {
-                        (rel_ret as f64) / (num_rel as f64)
-                    } else {
-                        0.0
-                    };
-                    results.push(MetricValue::Float(recall));
-                }
+        let mut results = Vec::with_capacity(self.cutoffs.len());
+        let num_rel = q_state.num_rel;
 
-                results
-            }
+        for &c in &self.cutoffs {
+            let rel_ret = super::common::count_relevant_retrieved_up_to(&q_state.results_rel_list, c, config);
+            let recall = if num_rel > 0 {
+                (rel_ret as f64) / (num_rel as f64)
+            } else {
+                0.0
+            };
+            results.push(MetricValue::Float(recall));
         }
+
+        results
     }
 }
 

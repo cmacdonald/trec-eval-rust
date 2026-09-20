@@ -42,47 +42,49 @@ impl Measure for MapCutMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let num_params = self.cutoffs.len();
-                let mut results = vec![0.0; num_params];
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                if q_state.num_rel == 0 {
-                    return results.into_iter().map(MetricValue::Float).collect();
-                }
+        let num_params = self.cutoffs.len();
+        let mut results = vec![0.0; num_params];
 
-                let mut cutoff_index = 0;
-                let mut rel_so_far = 0;
-                let mut sum_prec = 0.0;
+        if q_state.num_rel == 0 {
+            return results.into_iter().map(MetricValue::Float).collect();
+        }
 
-                for i in 0..q_state.num_ret {
-                    if cutoff_index < num_params && i == self.cutoffs[cutoff_index] {
-                        results[cutoff_index] = sum_prec / (q_state.num_rel as f64);
-                        cutoff_index += 1;
-                        while cutoff_index < num_params && i == self.cutoffs[cutoff_index] {
-                            results[cutoff_index] = sum_prec / (q_state.num_rel as f64);
-                            cutoff_index += 1;
-                        }
-                        if cutoff_index >= num_params {
-                            break;
-                        }
-                    }
+        let mut cutoff_index = 0;
+        let mut rel_so_far = 0;
+        let mut sum_prec = 0.0;
 
-                    if q_state.results_rel_list[i] >= config.relevance_level {
-                        rel_so_far += 1;
-                        sum_prec += (rel_so_far as f64) / ((i + 1) as f64);
-                    }
-                }
-
-                while cutoff_index < num_params {
+        for i in 0..q_state.num_ret {
+            if cutoff_index < num_params && i == self.cutoffs[cutoff_index] {
+                results[cutoff_index] = sum_prec / (q_state.num_rel as f64);
+                cutoff_index += 1;
+                while cutoff_index < num_params && i == self.cutoffs[cutoff_index] {
                     results[cutoff_index] = sum_prec / (q_state.num_rel as f64);
                     cutoff_index += 1;
                 }
+                if cutoff_index >= num_params {
+                    break;
+                }
+            }
 
-                results.into_iter().map(MetricValue::Float).collect()
+            if q_state.results_rel_list[i] >= config.relevance_level {
+                rel_so_far += 1;
+                sum_prec += (rel_so_far as f64) / ((i + 1) as f64);
             }
         }
+
+        while cutoff_index < num_params {
+            results[cutoff_index] = sum_prec / (q_state.num_rel as f64);
+            cutoff_index += 1;
+        }
+
+        results.into_iter().map(MetricValue::Float).collect()
     }
+
 }
 
 impl Default for MapCutMeasure {

@@ -39,16 +39,16 @@ impl Measure for SetRelativePMeasure {
     }
 
     fn calc(&self, _config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let score = if q_state.num_ret > 0 && q_state.num_rel > 0 {
-                    let max_possible = std::cmp::min(q_state.num_ret, q_state.num_rel);
-                    (q_state.num_rel_ret as f64) / (max_possible as f64)
-                } else {
-                    0.0
-                };
-                vec![MetricValue::Float(score)]
-            }
+        if let Some(q_state) = state.get_standard() {
+            let score = if q_state.num_ret > 0 && q_state.num_rel > 0 {
+                let max_possible = std::cmp::min(q_state.num_ret, q_state.num_rel);
+                (q_state.num_rel_ret as f64) / (max_possible as f64)
+            } else {
+                0.0
+            };
+            vec![MetricValue::Float(score)]
+        } else {
+            self.initial_values()
         }
     }
 }

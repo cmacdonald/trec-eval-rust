@@ -42,18 +42,19 @@ impl Measure for NumNonrelJudgedRetMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut count = 0;
-                for &rel in &q_state.results_rel_list {
-                    if rel >= 0 && rel < config.relevance_level {
-                        count += 1;
-                    }
+        if let Some(q_state) = state.get_standard() {
+            let mut count = 0;
+            for &rel in &q_state.results_rel_list {
+                if rel >= 0 && rel < config.relevance_level {
+                    count += 1;
                 }
-                vec![MetricValue::Integer(count)]
             }
+            vec![MetricValue::Integer(count)]
+        } else {
+            self.initial_values()
         }
     }
+
 
     fn average(&self, _config: &EvalConfig, _running_totals: &mut [MetricValue], _num_queries_evaluated: usize, _total_qrels_queries: usize) {
         // No-op for counts (reports overall sum across topics)

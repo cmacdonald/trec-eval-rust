@@ -50,16 +50,20 @@ impl Measure for GMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let gains_config = if !self.gains_config.custom_gains.is_empty() {
-                    &self.gains_config
-                } else if let Some(ref gg) = config.global_gains {
-                    gg
-                } else {
-                    &self.gains_config
-                };
-                let gains = Gains::setup(gains_config, &q_state.rel_levels);
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
+
+        let gains_config = if !self.gains_config.custom_gains.is_empty() {
+            &self.gains_config
+        } else if let Some(ref gg) = config.global_gains {
+            gg
+        } else {
+            &self.gains_config
+        };
+        let gains = Gains::setup(gains_config, &q_state.rel_levels);
+
 
                 let mut results_g = 0.0;
                 let mut sum_results = 0.0;
@@ -128,10 +132,9 @@ impl Measure for GMeasure {
                 };
 
                 vec![MetricValue::Float(score)]
-            }
-        }
     }
 }
+
 
 impl Default for GMeasure {
     fn default() -> Self {

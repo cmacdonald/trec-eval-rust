@@ -281,3 +281,24 @@ fn test_regression_group_5_7() {
     );
 }
 
+#[test]
+fn test_regression_qrels_jg() {
+    compare_outputs(
+        &["-m", "qrels_jg", "-q", "-R", "qrels_jg"],
+        &["-m", "qrels_jg", "-q", "-R", "qrels_jg"],
+        "qrels.123",
+        "results.test",
+    );
+}
+
+#[test]
+fn test_regression_qrels_jg_with_comments() {
+    compare_outputs(
+        &["-m", "qrels_jg", "-q", "-R", "qrels_jg"],
+        &["-m", "qrels_jg", "-q", "-R", "qrels_jg"],
+        "qrels.comments.123",
+        "results.test",
+    );
+}
+
+
