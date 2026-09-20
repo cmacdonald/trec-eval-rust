@@ -8,8 +8,8 @@ from trec_eval._trec_eval import ComparisonResult, EvalResult, Evaluator as _Rus
 from trec_eval.measures import Measure, register_measure
 from trec_eval.stats import AllPairsMatrix, ComparisonRow, MultiComparisonTable, adjust_pvalues
 
-
 ScoredDoc = NamedTuple('ScoredDoc', [('query_id', str), ('doc_id', str), ('score', float)])
+
 Qrel = NamedTuple('Qrel', [('query_id', str), ('doc_id', str), ('relevance', int)])
 
 
@@ -203,8 +203,10 @@ def evaluate(
     return evaluator.evaluate(run, qid=qid, docno=docno, score=score)
 
 
+from trec_eval import compat
 
 __all__ = [
+
     "__version__",
     "Evaluator",
     "EvalResult",
@@ -219,7 +221,9 @@ __all__ = [
     "ScoredDoc",
     "Qrel",
     "evaluate",
+    "compat",
 ]
+
 
 
 
