@@ -4,8 +4,10 @@
 
 from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Set, Union
 
-from trec_eval._trec_eval import ComparisonResult, EvalResult, Evaluator as _RustEvaluator, __version__
+from trec_eval._trec_eval import ComparisonResult, EvalResult, Evaluator as _RustEvaluator, QueryState, __version__
+from trec_eval.measures import Measure, register_measure
 from trec_eval.stats import AllPairsMatrix, ComparisonRow, MultiComparisonTable, adjust_pvalues
+
 
 ScoredDoc = NamedTuple('ScoredDoc', [('query_id', str), ('doc_id', str), ('score', float)])
 Qrel = NamedTuple('Qrel', [('query_id', str), ('doc_id', str), ('relevance', int)])
@@ -211,9 +213,13 @@ __all__ = [
     "MultiComparisonTable",
     "AllPairsMatrix",
     "adjust_pvalues",
+    "Measure",
+    "QueryState",
+    "register_measure",
     "ScoredDoc",
     "Qrel",
     "evaluate",
 ]
+
 
 
