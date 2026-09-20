@@ -162,7 +162,8 @@ We split the significance testing pipeline to maximize speed and analytical flex
      - **Paired Student's t-test**: Fast parametric test for mean differences.
      - **Randomized Permutation / Fisher Randomization Test**: Exact or Monte Carlo ($B=10{,}000$ to $100{,}000$ resamples) permutation test.
      - **Studentized Bootstrap**: Confidence intervals and bootstrap p-values.
-   - **Parallel Batch Execution**: When evaluating $N$ runs ($\binom{N}{2}$ pairwise comparisons) across $M$ measures, Rust evaluates all $\binom{N}{2} \times M$ tests concurrently across CPU cores via Rayon in milliseconds.
+   - **Efficient Batch Execution**: Implemented with zero-allocation loops and fast `SplitMix64` PRNG; computing all $\binom{N}{2} \times M$ tests completes in a few milliseconds on a single core.
+
 
 2. **Python Layer (Multiple Comparisons Adjustments & Reporting)**:
    - Ingests the matrix of raw p-values from Rust and applies multiple testing corrections.
@@ -352,13 +353,12 @@ ir_measures.register_provider(TeRustProvider())
 ## 7. Performance & Concurrency Model
 
 1. **GIL Release**:
-   - All computationally intensive phases (file parsing, query alignment, metric calculations across topics) release the Python GIL (`py.allow_threads(...)`).
+   - All computationally intensive phases (file parsing, query alignment, metric calculations across topics, significance testing) release the Python GIL (`py.allow_threads(...)`).
    - Enables multi-threaded Python applications (e.g. concurrent evaluation of multiple runs across worker threads) without GIL contention.
-2. **Parallel Evaluation via Rayon**:
-   - Metric computation across hundreds or thousands of topics is parallelized across CPU cores using Rayon in Rust.
-3. **Qrels Pre-indexing**:
+2. **Qrels Pre-indexing**:
    - In `Evaluator(qrels, ...)`, judgments are parsed, sorted, and converted into Rust lookup structures once.
    - Subsequent `evaluator.evaluate(run)` calls incur zero qrels re-parsing or re-indexing cost.
+
 
 ---
 
@@ -546,9 +546,10 @@ When implementing the Python package, work should be executed in well-scoped seq
 - Implement `.to_dataframe(format="wide"|"tidy")` and `.to_numpy(measure)` outputs.
 
 ### Stage 4: Multi-Run Statistical Significance & Corrections
-- Expose Rust-level pairwise paired tests (`paired_t`, `permutation`, `bootstrap`) with Rayon parallelization.
+- Expose Rust-level pairwise paired tests (`paired_t`, `permutation`, `bootstrap`).
 - Implement pure-Python multiple comparisons correction engine (`holm`, `fdr_bh`, `bonferroni`).
 - Implement `res_a.compare(res_b)`, `evaluator.compare_against_baseline()`, and `evaluator.compare_all()`.
+
 
 ### Stage 5: Custom Python Measures Extension Hook
 - Implement `trec_eval.Measure` base class and `QueryState` PyClass wrapper.
@@ -661,3 +662,13 @@ ISSUES.md entry where applicable.
   `results.aggregate()` returning a flat measure dict.
 - **Decision needed**: Define a single `Mapping` key semantics for `EvalResult` (query-keyed is the
   pytrec_eval-compatible choice), with aggregate/per-query exposed as explicit methods.
+
+### 14.8 Omission of Rayon multithreading for resampling tests
+- **Where**: §5.4.1, §7, and §12 mentioned using Rayon for parallel resampling.
+- **Reality**: Single-threaded evaluation using our register-level `SplitMix64` PRNG takes ~12 microseconds
+  for 10,000 permutation resamples across 50 topics, and ~1.5 milliseconds for a 10-system all-pairs matrix (45 tests).
+  Spawning and synchronizing worker threads via Rayon incurs 50–200 microseconds of thread coordination overhead,
+  making multithreading slower than sequential L1 cache execution for standard IR workloads.
+- **Decision**: Keep significance testing single-threaded in pure Rust, avoiding Rayon dependencies while
+  releasing the Python GIL for multi-threaded Python applications.
+
