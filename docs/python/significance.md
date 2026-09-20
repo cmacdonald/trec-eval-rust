@@ -71,8 +71,8 @@ p_bonf = adjust_pvalues(raw_pvalues, method="bonferroni")
 
 ### Correction Methods
 
-- **`'holm'`** (default): Holm-Bonferroni step-down method (Holm, 1979). Strongly controls Family-Wise Error Rate (FWER $\le \alpha$) with higher statistical power than single-step Bonferroni without assuming hypothesis independence.
-- **`'fdr_bh'`**: Benjamini-Hochberg procedure (Benjamini & Hochberg, 1995). Controls False Discovery Rate (FDR); optimal for large multi-model benchmark screening.
+- **`'holm'`** (default): Holm-Bonferroni step-down method (Holm, 1979). Strongly controls Family-Wise Error Rate (FWER $\le \alpha$) with higher statistical power than single-step Bonferroni without assuming hypothesis independence. This is useful when comparing a number of runs against a baseline (see an example below).
+- **`'fdr_bh'`**: Benjamini-Hochberg procedure (Benjamini & Hochberg, 1995). Controls False Discovery Rate (FDR); optimal for large multi-model benchmark screening. This is useful when making a number of pairwise significance tests (see example below) when commonly you might use the Bonferroni correction. The FDR correction is less conservative.
 - **`'bonferroni'`**: Single-step Bonferroni multiplier ($p_i \cdot m$). Conservative FWER control.
 - **`'none'`**: Returns unadjusted raw p-values.
 
