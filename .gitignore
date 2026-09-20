@@ -18,6 +18,10 @@ dist/
 *.egg-info/
 .pytest_cache/
 
+# Documentation site build artifacts
+site/
+.zensical_cache/
+
 # Backups and swap files
 *.rs.bk
 *.swp
