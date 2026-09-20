@@ -34,13 +34,23 @@ class Evaluator(
 
 ### Methods
 
-#### `evaluate(run, qid=None, docno=None, score=None) -> EvalResult`
+#### `evaluate`
+
+```python
+evaluate(run, qid=None, docno=None, score=None) -> EvalResult
+```
+
 Evaluates a system run against the pre-indexed judgments. The Python GIL is released during computation.
 
 - `run` (`str`, `PathLike`, `dict`, `DataFrame`, or `Iterable`): System run results.
 - `qid`, `docno`, `score` (`str`, optional): Column name overrides for DataFrame inputs.
 
-#### `evaluate_arrays(query_ids, doc_ids, scores) -> EvalResult`
+#### `evaluate_arrays`
+
+```python
+evaluate_arrays(query_ids, doc_ids, scores) -> EvalResult
+```
+
 Evaluates 1D arrays or contiguous buffer slices directly without creating intermediate Python objects.
 
 ---
@@ -51,7 +61,12 @@ The result object returned by `evaluator.evaluate()` and `trec_eval.evaluate()`.
 
 ### Inspection & Output Methods
 
-#### `.aggregate() -> Dict[str, float]`
+#### `.aggregate()`
+
+```python
+aggregate() -> Dict[str, float]
+```
+
 Returns the summary aggregate score across all evaluated queries for each requested measure.
 
 ```python
@@ -60,7 +75,12 @@ print(agg["map"])        # 0.2543
 print(agg["ndcg_cut_10"]) # 0.3812
 ```
 
-#### `.per_query() -> Dict[str, Dict[str, float]]`
+#### `.per_query()`
+
+```python
+per_query() -> Dict[str, Dict[str, float]]
+```
+
 Returns the complete nested dictionary of per-topic scores: `Dict[qid, Dict[measure_name, score]]`.
 
 ```python
@@ -68,10 +88,20 @@ queries = results.per_query()
 print(queries["301"]["map"]) # 0.3120
 ```
 
-#### `.to_dict() -> Dict[str, Dict[str, float]]`
+#### `.to_dict()`
+
+```python
+to_dict() -> Dict[str, Dict[str, float]]
+```
+
 Alias for `.per_query()`, providing full dictionary compatibility.
 
-#### `.to_dataframe(format="wide" | "tidy") -> pandas.DataFrame`
+#### `.to_dataframe()`
+
+```python
+to_dataframe(format="wide") -> pandas.DataFrame
+```
+
 Exports the evaluation scores as a Pandas or Polars DataFrame.
 
 - `format="wide"` (default): Query IDs as rows, measures as columns.
@@ -89,7 +119,12 @@ df_tidy = results.to_dataframe(format="tidy")
 # 1       301  ndcg_cut_10  0.4500
 ```
 
-#### `.to_numpy(measure="map") -> numpy.ndarray`
+#### `.to_numpy()`
+
+```python
+to_numpy(measure="map") -> numpy.ndarray
+```
+
 Returns a 1D NumPy array of per-query scores for the specified measure in deterministic topic ordering (matching `.keys()`). If NumPy is not installed, returns a list of floats.
 
 ```python
@@ -97,13 +132,19 @@ map_scores = results.to_numpy("map")
 print(map_scores.mean(), map_scores.std())
 ```
 
-#### `.compare(other: EvalResult, measure="map", test="paired_t", num_resamples=10000, seed=None) -> ComparisonResult`
+#### `.compare()`
+
+```python
+compare(other, measure="map", test="paired_t", num_resamples=10000, seed=None) -> ComparisonResult
+```
+
 Performs a statistical significance test between this run and another `EvalResult` across aligned topic scores.
 
 ```python
 comp = res_a.compare(res_b, measure="map", test="paired_t")
 print(comp.statistic, comp.pvalue, comp.significant(0.05))
 ```
+
 
 ---
 

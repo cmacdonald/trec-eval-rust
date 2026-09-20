@@ -14,7 +14,7 @@ Requesting a measure by its root name calculates standard default parameters:
 - `-m Rprec`
 - `-m recip_rank`
 
-### 2. Parameterized Cutoffs (`.<params>`)
+### 2. Parameterized Cutoffs (`.params`)
 Cutoffs and parameters are specified following a period:
 - `-m P.5,10,20` (Precision at ranks 5, 10, and 20)
 - `-m ndcg_cut.10,20,100` (nDCG at cutoffs 10, 20, 100)
@@ -22,13 +22,14 @@ Cutoffs and parameters are specified following a period:
 - `-m rbp.p=0.85` (Rank-Biased Precision with persistence $p = 0.85$)
 - `-m set_F.beta=0.5` ($F_\beta$-measure with $\beta = 0.5$)
 
-### 3. Cutoff Aliases (`@<cutoff>`)
+### 3. Cutoff Aliases (`@cutoff`)
 For cutoff measures, `@` syntax is supported as an alias:
 - `ndcg@10` $\rightarrow$ `ndcg_cut.10`
 - `P@5,10` $\rightarrow$ `P.5,10`
 - `map@100` $\rightarrow$ `map_cut.100`
 - `recall@10` $\rightarrow$ `recall.10`
 - `mrr` $\rightarrow$ `recip_rank`
+
 
 ---
 
