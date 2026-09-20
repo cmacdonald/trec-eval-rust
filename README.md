@@ -2,6 +2,10 @@
 
 A compatible reimplementation of `trec_eval` in Rust, providing identical usage and exact numerical parity with the standard Information Retrieval evaluation tool, a standalone command-line interface, and native high-performance Python bindings.
 
+## Documentation
+
+Documentation (built from the docs/ directory) is available at https://isoboroff.github.io/trec-eval-rust/.
+
 ## Project Structure
 
 ```text
