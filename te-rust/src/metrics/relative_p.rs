@@ -43,49 +43,32 @@ impl Measure for RelativePMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let num_params = self.cutoffs.len();
-                let mut results = vec![0.0; num_params];
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                if q_state.num_rel == 0 {
-                    return results.into_iter().map(MetricValue::Float).collect();
-                }
+        let num_params = self.cutoffs.len();
+        let mut results = vec![0.0; num_params];
 
-                let mut cutoff_index = 0;
-                let mut rel_so_far = 0;
+        if q_state.num_rel == 0 {
+            return results.into_iter().map(MetricValue::Float).collect();
+        }
 
-                for i in 0..q_state.num_ret {
-                    if cutoff_index < num_params && i == self.cutoffs[cutoff_index] {
-                        let cutoff = self.cutoffs[cutoff_index];
-                        let max_possible = min(cutoff, q_state.num_rel);
-                        results[cutoff_index] = if max_possible > 0 {
-                            (rel_so_far as f64) / (max_possible as f64)
-                        } else {
-                            0.0
-                        };
-                        cutoff_index += 1;
-                        while cutoff_index < num_params && i == self.cutoffs[cutoff_index] {
-                            let cutoff = self.cutoffs[cutoff_index];
-                            let max_possible = min(cutoff, q_state.num_rel);
-                            results[cutoff_index] = if max_possible > 0 {
-                                (rel_so_far as f64) / (max_possible as f64)
-                            } else {
-                                0.0
-                            };
-                            cutoff_index += 1;
-                        }
-                        if cutoff_index >= num_params {
-                            break;
-                        }
-                    }
+        let mut cutoff_index = 0;
+        let mut rel_so_far = 0;
 
-                    if q_state.results_rel_list[i] >= config.relevance_level {
-                        rel_so_far += 1;
-                    }
-                }
-
-                while cutoff_index < num_params {
+        for i in 0..q_state.num_ret {
+            if cutoff_index < num_params && i == self.cutoffs[cutoff_index] {
+                let cutoff = self.cutoffs[cutoff_index];
+                let max_possible = min(cutoff, q_state.num_rel);
+                results[cutoff_index] = if max_possible > 0 {
+                    (rel_so_far as f64) / (max_possible as f64)
+                } else {
+                    0.0
+                };
+                cutoff_index += 1;
+                while cutoff_index < num_params && i == self.cutoffs[cutoff_index] {
                     let cutoff = self.cutoffs[cutoff_index];
                     let max_possible = min(cutoff, q_state.num_rel);
                     results[cutoff_index] = if max_possible > 0 {
@@ -95,10 +78,28 @@ impl Measure for RelativePMeasure {
                     };
                     cutoff_index += 1;
                 }
+                if cutoff_index >= num_params {
+                    break;
+                }
+            }
 
-                results.into_iter().map(MetricValue::Float).collect()
+            if q_state.results_rel_list[i] >= config.relevance_level {
+                rel_so_far += 1;
             }
         }
+
+        while cutoff_index < num_params {
+            let cutoff = self.cutoffs[cutoff_index];
+            let max_possible = min(cutoff, q_state.num_rel);
+            results[cutoff_index] = if max_possible > 0 {
+                (rel_so_far as f64) / (max_possible as f64)
+            } else {
+                0.0
+            };
+            cutoff_index += 1;
+        }
+
+        results.into_iter().map(MetricValue::Float).collect()
     }
 }
 

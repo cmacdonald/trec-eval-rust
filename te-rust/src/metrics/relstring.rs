@@ -54,31 +54,32 @@ impl Measure for RelstringMeasure {
     }
 
     fn calc(&self, _config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let limit = std::cmp::min(self.len, q_state.results_rel_list.len());
-                let mut s = String::with_capacity(self.len);
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                for i in 0..limit {
-                    let rel = q_state.results_rel_list[i];
-                    let c = if rel > 9 {
-                        '>'
-                    } else if rel >= 0 {
-                        std::char::from_digit(rel as u32, 10).unwrap_or('<')
-                    } else if rel == crate::eval::alignment::RELVALUE_NONPOOL {
-                        '-'
-                    } else if rel == crate::eval::alignment::RELVALUE_UNJUDGED {
-                        '.'
-                    } else {
-                        '<'
-                    };
-                    s.push(c);
-                }
+        let limit = std::cmp::min(self.len, q_state.results_rel_list.len());
+        let mut s = String::with_capacity(self.len);
 
-                let quoted = format!("'{}'", s);
-                vec![MetricValue::Str(quoted)]
-            }
+        for i in 0..limit {
+            let rel = q_state.results_rel_list[i];
+            let c = if rel > 9 {
+                '>'
+            } else if rel >= 0 {
+                std::char::from_digit(rel as u32, 10).unwrap_or('<')
+            } else if rel == crate::eval::alignment::RELVALUE_NONPOOL {
+                '-'
+            } else if rel == crate::eval::alignment::RELVALUE_UNJUDGED {
+                '.'
+            } else {
+                '<'
+            };
+            s.push(c);
         }
+
+        let quoted = format!("'{}'", s);
+        vec![MetricValue::Str(quoted)]
     }
 }
 

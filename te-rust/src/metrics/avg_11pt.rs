@@ -46,66 +46,67 @@ impl Measure for Avg11PtMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let num_rel = q_state.num_rel;
-                let num_ret = q_state.results_rel_list.len();
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                if num_rel == 0 {
-                    return vec![MetricValue::Float(0.0)];
-                }
+        let num_rel = q_state.num_rel;
+        let num_ret = q_state.results_rel_list.len();
 
-                // Count total relevant retrieved
-                let mut num_rel_ret = 0;
-                for &rel in &q_state.results_rel_list {
-                    if rel >= config.relevance_level {
-                        num_rel_ret += 1;
-                    }
-                }
+        if num_rel == 0 {
+            return vec![MetricValue::Float(0.0)];
+        }
 
-                // Translate cutoff percentages to target relevant document counts
-                let num_params = self.cutoffs.len();
-                let mut cutoffs = vec![0i64; num_params];
-                for i in 0..num_params {
-                    cutoffs[i] = (self.cutoffs[i] * num_rel as f64).round() as i64;
-                }
+        // Count total relevant retrieved
+        let mut num_rel_ret = 0;
+        for &rel in &q_state.results_rel_list {
+            if rel >= config.relevance_level {
+                num_rel_ret += 1;
+            }
+        }
 
-                let mut current_cut = num_params as i64 - 1;
-                while current_cut >= 0 && cutoffs[current_cut as usize] > num_rel_ret as i64 {
-                    current_cut -= 1;
-                }
+        // Translate cutoff percentages to target relevant document counts
+        let num_params = self.cutoffs.len();
+        let mut cutoffs = vec![0i64; num_params];
+        for i in 0..num_params {
+            cutoffs[i] = (self.cutoffs[i] * num_rel as f64).round() as i64;
+        }
 
-                let mut sum = 0.0;
-                let mut int_precis = if num_ret > 0 {
-                    (num_rel_ret as f64) / (num_ret as f64)
-                } else {
-                    0.0
-                };
-                let mut rel_so_far = num_rel_ret;
+        let mut current_cut = num_params as i64 - 1;
+        while current_cut >= 0 && cutoffs[current_cut as usize] > num_rel_ret as i64 {
+            current_cut -= 1;
+        }
 
-                for i in (1..=num_ret).rev() {
-                    let precis = (rel_so_far as f64) / (i as f64);
-                    if int_precis < precis {
-                        int_precis = precis;
-                    }
-                    if q_state.results_rel_list[i - 1] >= config.relevance_level {
-                        while current_cut >= 0 && rel_so_far as i64 == cutoffs[current_cut as usize] {
-                            sum += int_precis;
-                            current_cut -= 1;
-                        }
-                        rel_so_far -= 1;
-                    }
-                }
+        let mut sum = 0.0;
+        let mut int_precis = if num_ret > 0 {
+            (num_rel_ret as f64) / (num_ret as f64)
+        } else {
+            0.0
+        };
+        let mut rel_so_far = num_rel_ret;
 
-                while current_cut >= 0 {
+        for i in (1..=num_ret).rev() {
+            let precis = (rel_so_far as f64) / (i as f64);
+            if int_precis < precis {
+                int_precis = precis;
+            }
+            if q_state.results_rel_list[i - 1] >= config.relevance_level {
+                while current_cut >= 0 && rel_so_far as i64 == cutoffs[current_cut as usize] {
                     sum += int_precis;
                     current_cut -= 1;
                 }
-
-                let final_val = sum / (num_params as f64);
-                vec![MetricValue::Float(final_val)]
+                rel_so_far -= 1;
             }
         }
+
+        while current_cut >= 0 {
+            sum += int_precis;
+            current_cut -= 1;
+        }
+
+        let final_val = sum / (num_params as f64);
+        vec![MetricValue::Float(final_val)]
     }
 }
 

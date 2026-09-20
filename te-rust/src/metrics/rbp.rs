@@ -52,58 +52,59 @@ impl Measure for RbpMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let default_gains_config = GainsConfig::parse("");
-                let gains_config = if let Some(ref gg) = config.global_gains {
-                    gg
-                } else {
-                    &default_gains_config
-                };
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                let gains = Gains::setup(gains_config, &q_state.rel_levels);
+        let default_gains_config = GainsConfig::parse("");
+        let gains_config = if let Some(ref gg) = config.global_gains {
+            gg
+        } else {
+            &default_gains_config
+        };
 
-                // Find min and max gains to normalize if needed
-                let mut min_gain = f64::INFINITY;
-                let mut max_gain = f64::NEG_INFINITY;
-                for g in &gains.rel_gains {
-                    if g.gain < min_gain {
-                        min_gain = g.gain;
-                    }
-                    if g.gain > max_gain {
-                        max_gain = g.gain;
-                    }
-                }
+        let gains = Gains::setup(gains_config, &q_state.rel_levels);
 
-                let get_normalized_gain = |rel_level: i64| -> f64 {
-                    let raw_gain = gains.get_gain(rel_level);
-                    if min_gain < 0.0 || max_gain > 1.0 {
-                        let range = max_gain - min_gain;
-                        if range > 0.0 {
-                            (raw_gain - min_gain) / range
-                        } else {
-                            0.0
-                        }
-                    } else {
-                        raw_gain
-                    }
-                };
-
-                let mut sum = 0.0;
-                let mut cur_p = 1.0;
-
-                for &rel in &q_state.results_rel_list {
-                    let gain = get_normalized_gain(rel);
-                    if gain != 0.0 {
-                        sum += gain * cur_p;
-                    }
-                    cur_p *= self.p;
-                }
-
-                let val = (1.0 - self.p) * sum;
-                vec![MetricValue::Float(val)]
+        // Find min and max gains to normalize if needed
+        let mut min_gain = f64::INFINITY;
+        let mut max_gain = f64::NEG_INFINITY;
+        for g in &gains.rel_gains {
+            if g.gain < min_gain {
+                min_gain = g.gain;
+            }
+            if g.gain > max_gain {
+                max_gain = g.gain;
             }
         }
+
+        let get_normalized_gain = |rel_level: i64| -> f64 {
+            let raw_gain = gains.get_gain(rel_level);
+            if min_gain < 0.0 || max_gain > 1.0 {
+                let range = max_gain - min_gain;
+                if range > 0.0 {
+                    (raw_gain - min_gain) / range
+                } else {
+                    0.0
+                }
+            } else {
+                raw_gain
+            }
+        };
+
+        let mut sum = 0.0;
+        let mut cur_p = 1.0;
+
+        for &rel in &q_state.results_rel_list {
+            let gain = get_normalized_gain(rel);
+            if gain != 0.0 {
+                sum += gain * cur_p;
+            }
+            cur_p *= self.p;
+        }
+
+        let val = (1.0 - self.p) * sum;
+        vec![MetricValue::Float(val)]
     }
 }
 

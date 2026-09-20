@@ -38,30 +38,30 @@ impl Measure for BinGMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut sum = 0.0;
-                let mut rel_so_far = 0;
+        if let Some(q_state) = state.get_standard() {
+            let mut sum = 0.0;
+            let mut rel_so_far = 0;
 
-                for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
-                    if rel >= config.relevance_level {
-                        rel_so_far += 1;
-                        // Matches C: log2(3 + i - rel_so_far), i.e. 2 + (num nonrel retrieved
-                        // before this doc). Compute in signed arithmetic to avoid underflow when
-                        // the first document is relevant (i=0, rel_so_far=1 => arg = 2).
-                        let arg = 3 + i as i64 - rel_so_far as i64;
-                        sum += 1.0 / (arg as f64).log2();
-                    }
+            for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
+                if rel >= config.relevance_level {
+                    rel_so_far += 1;
+                    // Matches C: log2(3 + i - rel_so_far), i.e. 2 + (num nonrel retrieved
+                    // before this doc). Compute in signed arithmetic to avoid underflow when
+                    // the first document is relevant (i=0, rel_so_far=1 => arg = 2).
+                    let arg = 3 + i as i64 - rel_so_far as i64;
+                    sum += 1.0 / (arg as f64).log2();
                 }
-
-                let score = if q_state.num_rel > 0 && rel_so_far > 0 {
-                    sum / (q_state.num_rel as f64)
-                } else {
-                    0.0
-                };
-
-                vec![MetricValue::Float(score)]
             }
+
+            let score = if q_state.num_rel > 0 && rel_so_far > 0 {
+                sum / (q_state.num_rel as f64)
+            } else {
+                0.0
+            };
+
+            vec![MetricValue::Float(score)]
+        } else {
+            self.initial_values()
         }
     }
 }

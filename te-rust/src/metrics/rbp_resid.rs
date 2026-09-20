@@ -51,29 +51,30 @@ impl Measure for RbpResidMeasure {
     }
 
     fn calc(&self, _config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut unj_so_far = 0;
-                let mut sum = 0.0;
-                let mut cur_p = 1.0;
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                for &rel in &q_state.results_rel_list {
-                    if rel < 0 {
-                        unj_so_far += 1;
-                        sum += cur_p;
-                    }
-                    cur_p *= self.p;
-                }
+        let mut unj_so_far = 0;
+        let mut sum = 0.0;
+        let mut cur_p = 1.0;
 
-                let val = if unj_so_far > 0 {
-                    cur_p + (1.0 - self.p) * sum
-                } else {
-                    0.0
-                };
-
-                vec![MetricValue::Float(val)]
+        for &rel in &q_state.results_rel_list {
+            if rel < 0 {
+                unj_so_far += 1;
+                sum += cur_p;
             }
+            cur_p *= self.p;
         }
+
+        let val = if unj_so_far > 0 {
+            cur_p + (1.0 - self.p) * sum
+        } else {
+            0.0
+        };
+
+        vec![MetricValue::Float(val)]
     }
 }
 

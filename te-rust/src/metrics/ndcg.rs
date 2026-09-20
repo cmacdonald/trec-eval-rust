@@ -50,70 +50,72 @@ impl Measure for NdcgMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let gains_config = if !self.gains_config.custom_gains.is_empty() {
-                    &self.gains_config
-                } else if let Some(ref gg) = config.global_gains {
-                    gg
-                } else {
-                    &self.gains_config
-                };
-                let gains = Gains::setup(gains_config, &q_state.rel_levels);
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                let mut results_dcg = 0.0;
-                let mut ideal_dcg = 0.0;
-                let mut cur_level = gains.rel_gains.len() as i64 - 1;
-                let mut ideal_gain = if cur_level >= 0 { gains.rel_gains[cur_level as usize].gain } else { 0.0 };
-                let mut num_at_level = 0;
+        let gains_config = if !self.gains_config.custom_gains.is_empty() {
+            &self.gains_config
+        } else if let Some(ref gg) = config.global_gains {
+            gg
+        } else {
+            &self.gains_config
+        };
+        let gains = Gains::setup(gains_config, &q_state.rel_levels);
 
-                let mut i = 0;
-                while i < q_state.num_ret && ideal_gain > 0.0 {
-                    let results_gain = gains.get_gain(q_state.results_rel_list[i]);
-                    if results_gain != 0.0 {
-                        results_dcg += results_gain / ((i + 2) as f64).log2();
-                    }
+        let mut results_dcg = 0.0;
+        let mut ideal_dcg = 0.0;
+        let mut cur_level = gains.rel_gains.len() as i64 - 1;
+        let mut ideal_gain = if cur_level >= 0 { gains.rel_gains[cur_level as usize].gain } else { 0.0 };
+        let mut num_at_level = 0;
 
-                    num_at_level += 1;
-                    while cur_level >= 0 && num_at_level > gains.rel_gains[cur_level as usize].num_at_level {
-                        num_at_level = 1;
-                        cur_level -= 1;
-                        ideal_gain = if cur_level >= 0 { gains.rel_gains[cur_level as usize].gain } else { 0.0 };
-                    }
-
-                    if ideal_gain > 0.0 {
-                        ideal_dcg += ideal_gain / ((i + 2) as f64).log2();
-                    }
-
-                    i += 1;
-                }
-
-                while i < q_state.num_ret {
-                    let results_gain = gains.get_gain(q_state.results_rel_list[i]);
-                    if results_gain != 0.0 {
-                        results_dcg += results_gain / ((i + 2) as f64).log2();
-                    }
-                    i += 1;
-                }
-
-                while ideal_gain > 0.0 {
-                    num_at_level += 1;
-                    while cur_level >= 0 && num_at_level > gains.rel_gains[cur_level as usize].num_at_level {
-                        num_at_level = 1;
-                        cur_level -= 1;
-                        ideal_gain = if cur_level >= 0 { gains.rel_gains[cur_level as usize].gain } else { 0.0 };
-                    }
-                    if ideal_gain > 0.0 {
-                        ideal_dcg += ideal_gain / ((i + 2) as f64).log2();
-                    }
-                    i += 1;
-                }
-
-                let score = if ideal_dcg > 0.0 { results_dcg / ideal_dcg } else { 0.0 };
-                vec![MetricValue::Float(score)]
+        let mut i = 0;
+        while i < q_state.num_ret && ideal_gain > 0.0 {
+            let results_gain = gains.get_gain(q_state.results_rel_list[i]);
+            if results_gain != 0.0 {
+                results_dcg += results_gain / ((i + 2) as f64).log2();
             }
+
+            num_at_level += 1;
+            while cur_level >= 0 && num_at_level > gains.rel_gains[cur_level as usize].num_at_level {
+                num_at_level = 1;
+                cur_level -= 1;
+                ideal_gain = if cur_level >= 0 { gains.rel_gains[cur_level as usize].gain } else { 0.0 };
+            }
+
+            if ideal_gain > 0.0 {
+                ideal_dcg += ideal_gain / ((i + 2) as f64).log2();
+            }
+
+            i += 1;
         }
+
+        while i < q_state.num_ret {
+            let results_gain = gains.get_gain(q_state.results_rel_list[i]);
+            if results_gain != 0.0 {
+                results_dcg += results_gain / ((i + 2) as f64).log2();
+            }
+            i += 1;
+        }
+
+        while ideal_gain > 0.0 {
+            num_at_level += 1;
+            while cur_level >= 0 && num_at_level > gains.rel_gains[cur_level as usize].num_at_level {
+                num_at_level = 1;
+                cur_level -= 1;
+                ideal_gain = if cur_level >= 0 { gains.rel_gains[cur_level as usize].gain } else { 0.0 };
+            }
+            if ideal_gain > 0.0 {
+                ideal_dcg += ideal_gain / ((i + 2) as f64).log2();
+            }
+            i += 1;
+        }
+
+        let score = if ideal_dcg > 0.0 { results_dcg / ideal_dcg } else { 0.0 };
+        vec![MetricValue::Float(score)]
     }
+
 }
 
 impl Default for NdcgMeasure {

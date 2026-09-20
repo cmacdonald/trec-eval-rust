@@ -42,8 +42,10 @@ impl Measure for RunIdMeasure {
     }
 
     fn calc(&self, _config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => vec![MetricValue::Str(q_state.run_id.clone())],
+        if let Some(q_state) = state.get_standard() {
+            vec![MetricValue::Str(q_state.run_id.clone())]
+        } else {
+            self.initial_values()
         }
     }
 

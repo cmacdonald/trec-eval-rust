@@ -42,8 +42,10 @@ impl Measure for NumRelRetMeasure {
     }
 
     fn calc(&self, _config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => vec![MetricValue::Integer(q_state.num_rel_ret as i64)],
+        if let Some(q_state) = state.get_standard() {
+            vec![MetricValue::Integer(q_state.num_rel_ret as i64)]
+        } else {
+            self.initial_values()
         }
     }
 

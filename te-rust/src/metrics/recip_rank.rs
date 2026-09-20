@@ -38,19 +38,20 @@ impl Measure for RecipRankMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut score = 0.0;
-                for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
-                    if rel >= config.relevance_level {
-                        score = 1.0 / (i + 1) as f64;
-                        break;
-                    }
+        if let Some(q_state) = state.get_standard() {
+            let mut score = 0.0;
+            for (i, &rel) in q_state.results_rel_list.iter().enumerate() {
+                if rel >= config.relevance_level {
+                    score = 1.0 / (i + 1) as f64;
+                    break;
                 }
-                vec![MetricValue::Float(score)]
             }
+            vec![MetricValue::Float(score)]
+        } else {
+            self.initial_values()
         }
     }
+
 }
 
 impl Default for RecipRankMeasure {

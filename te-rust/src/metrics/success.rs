@@ -42,19 +42,20 @@ impl Measure for SuccessCutMeasure {
     }
 
     fn calc(&self, config: &EvalConfig, state: &EvalState) -> Vec<MetricValue> {
-        match state {
-            EvalState::Standard(q_state) => {
-                let mut results = Vec::with_capacity(self.cutoffs.len());
+        let q_state = match state.get_standard() {
+            Some(q) => q,
+            None => return self.initial_values(),
+        };
 
-                for &c in &self.cutoffs {
-                    let rel_ret = super::common::count_relevant_retrieved_up_to(&q_state.results_rel_list, c, config);
-                    let success = if rel_ret > 0 { 1.0 } else { 0.0 };
-                    results.push(MetricValue::Float(success));
-                }
+        let mut results = Vec::with_capacity(self.cutoffs.len());
 
-                results
-            }
+        for &c in &self.cutoffs {
+            let rel_ret = super::common::count_relevant_retrieved_up_to(&q_state.results_rel_list, c, config);
+            let success = if rel_ret > 0 { 1.0 } else { 0.0 };
+            results.push(MetricValue::Float(success));
         }
+
+        results
     }
 }
 
