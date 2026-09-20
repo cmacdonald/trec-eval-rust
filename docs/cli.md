@@ -2,6 +2,8 @@
 
 `te-rust` is the standalone command-line evaluation tool. It accepts standard TREC relevance judgments (qrels) and system run results files, evaluates requested measures, and prints relational summary outputs.
 
+It is a drop-in replacement for `trec_eval`, supporting the same command-line options and measure specifications. If you find an incompatibilty with trec_eval 10.x, that is a bug on our part
+
 ---
 
 ## Syntax
@@ -79,6 +81,8 @@ Example `qrels.txt`:
 302 0 LA010189-0001 1
 ```
 
+Lines that start with `#` are comments and are ignored. Comments in qrels files were a trec_eval 10.x feature to support documenting how a qrels file should be use to reproduce published scores.
+
 ### 2. System Run File
 
 Whitespace-delimited text file with 6 columns:
@@ -101,7 +105,7 @@ Example `run.txt`:
 301 Q0 FBIS3-10169 3  9.812 my_bm25_run
 ```
 
-Lines starting with `#` in either file are treated as comments and ignored.
+Lines starting with `#` in either file are treated as comments and ignored. Comments in run files were a trec_eval 10.x feature to support including metadata and documentation about a run.
 
 ---
 

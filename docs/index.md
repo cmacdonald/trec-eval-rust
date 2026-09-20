@@ -1,6 +1,8 @@
 # trec_eval Documentation
 
-`trec_eval` is a clean-room Rust reimplementation of the standard TREC evaluation tool (`trec_eval 9.x/10.x`). It provides a command-line interface with exact numerical equivalence to the reference C implementation, as well as a native Python library (`trec-eval`).
+`trec_eval` is a Rust reimplementation of the standard TREC evaluation tool(`trec_eval 9.x/10.x`). It provides a command-line interface with exact numerical equivalence to the reference C implementation, as well as a native Python library (`trec-eval`). 
+
+The Python library includes support for running statistical tests and multiple-comparisons corrections on multiple evaluation outputs, facilities for implementing measures in Python, ingest and output to Numpy arrays and Pandas Dataframes, and compatibility with ir_measures and pytrec_eval.
 
 ---
 

@@ -1,6 +1,6 @@
 # Gain-Based & Discounted Measures
 
-Gain-based measures evaluate rankings using graded relevance judgments where higher relevance grades contribute greater utility, discounted by rank position.
+Gain-based measures like NDCG evaluate rankings using graded relevance judgments where higher relevance grades contribute greater utility, discounted by rank position.
 
 ---
 

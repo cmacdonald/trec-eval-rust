@@ -2,6 +2,8 @@
 
 `trec_eval` implements all 33 standard evaluation measures from reference `trec_eval 9.x/10.x`. Each measure is implemented according to its standard definition with explicit edge-case handling (empty rankings, zero relevant documents, unjudged documents).
 
+All measures include unit tests as well as the `trec_eval` regression tests. Please let us know if you find an error or a discrepancy against the original codebase.
+
 ---
 
 ## Measure Specification Syntax
