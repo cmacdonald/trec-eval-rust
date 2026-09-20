@@ -117,11 +117,16 @@ results = evaluator.evaluate(
 
 ### D. Pandas and Polars DataFrames
 
-DataFrames with standard column names (`query_id`/`qid`, `doc_id`/`docno`, `score`/`similarity`, `relevance`/`rel`) are ingested directly without converting to intermediate dictionaries:
+DataFrames with standard column names (`query_id`/`qid`, `doc_id`/`docno`, `score`/`similarity`, `relevance`/`rel`) are ingested directly without converting to intermediate dictionaries.
+
+!!! note "DataFrame Ingestion vs. Export"
+    - **Ingestion**: Ingesting DataFrames into `Evaluator` or `evaluate()` uses generic column access and works with any DataFrame object.
+    - **Exporting (`.to_dataframe()`)**: Generating a `pandas.DataFrame` or `polars.DataFrame` from results requires `pandas` (`pip install "trec-eval[pandas]"`) or `polars`.
 
 ```python
 import pandas as pd
 import trec_eval
+
 
 qrels_df = pd.DataFrame({
     "query_id": ["q1", "q1", "q2"],

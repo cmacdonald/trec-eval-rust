@@ -8,11 +8,15 @@ High-performance Python bindings for `trec_eval`, powered by `te-rust`.
 pip install trec-eval
 ```
 
-## Dependencies
+## Dependencies & Optional Features
 
-`trec-eval` has **zero mandatory dependencies**. Optional integrations are available:
+`trec-eval` has **zero mandatory runtime dependencies**. All core evaluation, hypothesis testing (`paired_t`, `permutation`, `bootstrap`), multiple comparison corrections (`holm`, `fdr_bh`, `bonferroni`), and custom measure authoring work with standard Python.
 
-- `pip install "trec-eval[numpy]"`: Zero-copy NumPy buffer ingestion
-- `pip install "trec-eval[pandas]"`: DataFrame input/output support
-- `pip install "trec-eval[stats]"`: Statistical tests & corrections
-- `pip install "trec-eval[all]"`: All optional dependencies (Pandas, Polars, NumPy, SciPy, PyArrow)
+Optional extras are available for tabular and scientific array outputs:
+
+- `pip install "trec-eval[pandas]"`: Enables exporting results to Pandas/Polars DataFrames via `.to_dataframe()`. *(Note: DataFrame ingestion into `Evaluator` works with or without this extra).*
+- `pip install "trec-eval[numpy]"`: Returns a `numpy.ndarray` from `.to_numpy(measure)`. *(Falls back to a standard Python `list[float]` if NumPy is not installed).*
+- `pip install "trec-eval[all]"`: Installs all optional packages (Pandas, Polars, NumPy).
+
+
+

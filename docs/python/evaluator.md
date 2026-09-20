@@ -107,6 +107,8 @@ Exports the evaluation scores as a Pandas or Polars DataFrame.
 - `format="wide"` (default): Query IDs as rows, measures as columns.
 - `format="tidy"` (or `'long'`): 3-column long format `(query_id, measure, value)`.
 
+*Requirement*: Requires `pandas` (`pip install "trec-eval[pandas]"`) or `polars`. Raises `ImportError` if neither is installed.
+
 ```python
 df_wide = results.to_dataframe(format="wide")
 #    query_id     map  ndcg_cut_10  recip_rank
@@ -125,12 +127,15 @@ df_tidy = results.to_dataframe(format="tidy")
 to_numpy(measure="map") -> numpy.ndarray
 ```
 
-Returns a 1D NumPy array of per-query scores for the specified measure in deterministic topic ordering (matching `.keys()`). If NumPy is not installed, returns a list of floats.
+Returns a 1D NumPy array of per-query scores for the specified measure in deterministic topic ordering (matching `.keys()`).
+
+*Fallback*: If `numpy` is installed (`pip install "trec-eval[numpy]"`), returns a `numpy.ndarray`. If NumPy is not installed, gracefully returns a standard Python `list[float]`.
 
 ```python
 map_scores = results.to_numpy("map")
 print(map_scores.mean(), map_scores.std())
 ```
+
 
 #### `.compare()`
 

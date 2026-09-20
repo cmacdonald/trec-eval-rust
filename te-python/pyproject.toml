@@ -29,24 +29,22 @@ dependencies = []
 [project.optional-dependencies]
 numpy = ["numpy>=1.20"]
 pandas = ["pandas>=1.0", "numpy>=1.20"]
-stats = ["scipy>=1.8", "numpy>=1.20"]
 docs = ["zensical>=0.0.50"]
 all = [
     "pandas>=1.0",
     "numpy>=1.20",
-    "scipy>=1.8",
     "polars>=0.18",
-    "pyarrow>=10.0",
 ]
 dev = [
     "pytest>=7.0",
     "maturin>=1.4",
     "pandas>=1.0",
     "numpy>=1.20",
-    "pyarrow>=10.0",
     "scipy>=1.8",
     "zensical>=0.0.50",
 ]
+
+
 
 
 

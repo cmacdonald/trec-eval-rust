@@ -101,7 +101,7 @@ comp_table = evaluator.compare_against_baseline(
 # Print formatted summary table
 print(comp_table)
 
-# Export to Pandas DataFrame
+# Export to Pandas DataFrame (requires 'pandas' or 'polars')
 df = comp_table.to_dataframe()
 # Columns: ['candidate', 'measure', 'baseline_score', 'candidate_score', 'diff', 'statistic', 'p_raw', 'p_adj', 'significant']
 ```
@@ -128,6 +128,7 @@ matrix = evaluator.compare_all(
 # Print pairwise matrix with significance markers (▲ / ▼)
 print(matrix.summary_table())
 
-# Access adjusted p-values table
+# Access adjusted p-values table (requires 'pandas')
 df_pvalues = matrix.to_dataframe()
 ```
+
