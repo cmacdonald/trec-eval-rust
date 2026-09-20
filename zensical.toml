@@ -1,8 +1,12 @@
 [project]
+site_url = "https://isoboroff.github.io/trec-eval-rust/"
 site_name = "trec_eval Documentation"
 site_description = "Clean-room reimplementation of trec_eval in Rust with Python bindings"
+repo_url = "https://github.com/isoboroff/trec-eval-rust"
+repo_name = "isoboroff/trec-eval-rust"
 
 nav = [
+
   { "Overview" = "index.md" },
   { "Command-Line Interface" = "cli.md" },
   { "Python API" = [
