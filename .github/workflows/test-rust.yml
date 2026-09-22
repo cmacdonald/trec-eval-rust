@@ -59,7 +59,6 @@ jobs:
             --skip test_regression_relevance_level \
             --skip test_regression_parametric_cutoffs \
             --skip test_regression_stock_set \
-            --skip test_regression_help_flags \
             --skip test_regression_specialized_standard_metrics \
             --skip test_regression_relstring_query_level \
             --skip test_regression_group_3 \
