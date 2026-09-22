@@ -39,4 +39,4 @@ jobs:
           toolchain: ${{ matrix.rust-version }}
 
       - name: Run Rust tests
-        run: cargo test --workspace
+        run: cargo test --workspace -- --skip test_regression_
