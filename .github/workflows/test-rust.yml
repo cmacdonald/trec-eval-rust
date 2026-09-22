@@ -1,0 +1,42 @@
+name: Test Rust
+
+on:
+  pull_request:
+    paths:
+      - "te-rust/**"
+      - "te-python/src/**"
+      - "te-python/Cargo.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/test-rust.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "te-rust/**"
+      - "te-python/src/**"
+      - "te-python/Cargo.toml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/test-rust.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust-version: ["1.75.0", "stable"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust-version }}
+
+      - name: Run Rust tests
+        run: cargo test --workspace
