@@ -46,6 +46,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: usnistgov/trec_eval
+          ref: f4253652c8efd0d86ddffd0d163cc0a0f813111a # v10.0
           path: trec_eval
 
       - name: Run Rust tests
