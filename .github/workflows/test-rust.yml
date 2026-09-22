@@ -43,11 +43,27 @@ jobs:
 
       - name: Run Rust tests
         run: |
-          cargo test --workspace --lib --bins --tests -- --skip test_regression_
+          cargo test --workspace --lib --bins --tests -- \
+            --skip test_regression_default \
+            --skip test_regression_query_level \
+            --skip test_regression_judged_only \
+            --skip test_regression_max_docs \
+            --skip test_regression_relevance_level \
+            --skip test_regression_parametric_cutoffs \
+            --skip test_regression_stock_set \
+            --skip test_regression_help_flags \
+            --skip test_regression_specialized_standard_metrics \
+            --skip test_regression_relstring_query_level \
+            --skip test_regression_group_3 \
+            --skip test_regression_group_4 \
+            --skip test_regression_group_5_7 \
+            --skip test_regression_qrels_jg \
+            --skip test_regression_qrels_jg_with_comments
 
       - name: Run C parity regression tests (if trec_eval checkout is present)
         run: |
-          if [ -x trec_eval/trec_eval ] && [ -f trec_eval/test/results.test ]; then
+          if [ -f trec_eval/Makefile ] && [ -f trec_eval/test/results.test ]; then
+            make -C trec_eval -j2
             cargo test -p te-rust --test regression
           else
             echo "Skipping regression parity tests: local trec_eval checkout not present."
