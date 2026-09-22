@@ -41,6 +41,13 @@ jobs:
         with:
           toolchain: ${{ matrix.rust-version }}
 
+      - name: Check out C trec_eval reference
+        if: matrix.rust-version == 'stable'
+        uses: actions/checkout@v4
+        with:
+          repository: usnistgov/trec_eval
+          path: trec_eval
+
       - name: Run Rust tests
         run: |
           cargo test --workspace --lib --bins --tests -- \
@@ -60,11 +67,8 @@ jobs:
             --skip test_regression_qrels_jg \
             --skip test_regression_qrels_jg_with_comments
 
-      - name: Run C parity regression tests (if trec_eval checkout is present)
+      - name: Run C parity regression tests
+        if: matrix.rust-version == 'stable'
         run: |
-          if [ -f trec_eval/Makefile ] && [ -f trec_eval/test/results.test ]; then
-            make -C trec_eval -j2
-            cargo test -p te-rust --test regression
-          else
-            echo "Skipping regression parity tests: local trec_eval checkout not present."
-          fi
+          make -C trec_eval -j2
+          cargo test -p te-rust --test regression
