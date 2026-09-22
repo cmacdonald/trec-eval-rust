@@ -43,5 +43,12 @@ jobs:
 
       - name: Run Rust tests
         run: |
-          cargo test --workspace --lib --bins
-          cargo test -p te-rust --test confidence_intervals
+          cargo test --workspace --lib --bins --tests -- --skip test_regression_
+
+      - name: Run C parity regression tests (if trec_eval checkout is present)
+        run: |
+          if [ -x trec_eval/trec_eval ] && [ -f trec_eval/test/results.test ]; then
+            cargo test -p te-rust --test regression
+          else
+            echo "Skipping regression parity tests: local trec_eval checkout not present."
+          fi

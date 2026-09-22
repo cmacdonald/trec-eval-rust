@@ -49,3 +49,6 @@ jobs:
 
       - name: Run Python tests
         run: uv run --project te-python --extra dev pytest te-python/tests
+
+      - name: Run Rust tests for Python extension crate
+        run: cargo test -p te-python --lib
