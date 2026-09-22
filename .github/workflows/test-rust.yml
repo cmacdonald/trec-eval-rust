@@ -25,7 +25,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  test-matrix:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -41,34 +41,32 @@ jobs:
         with:
           toolchain: ${{ matrix.rust-version }}
 
+      - name: Run Rust tests
+        run: |
+          cargo test --workspace --lib --bins
+          cargo test -p te-rust --test confidence_intervals
+          cargo test -p te-rust --test regression test_regression_help_flags
+
+  parity-regression:
+    runs-on: ubuntu-latest
+    needs: test-matrix
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
       - name: Check out C trec_eval reference
-        if: matrix.rust-version == 'stable'
         uses: actions/checkout@v4
         with:
           repository: usnistgov/trec_eval
           ref: f4253652c8efd0d86ddffd0d163cc0a0f813111a # v10.0
-          path: trec_eval
-
-      - name: Run Rust tests
-        run: |
-          cargo test --workspace --lib --bins --tests -- \
-            --skip test_regression_default \
-            --skip test_regression_query_level \
-            --skip test_regression_judged_only \
-            --skip test_regression_max_docs \
-            --skip test_regression_relevance_level \
-            --skip test_regression_parametric_cutoffs \
-            --skip test_regression_stock_set \
-            --skip test_regression_specialized_standard_metrics \
-            --skip test_regression_relstring_query_level \
-            --skip test_regression_group_3 \
-            --skip test_regression_group_4 \
-            --skip test_regression_group_5_7 \
-            --skip test_regression_qrels_jg \
-            --skip test_regression_qrels_jg_with_comments
+          path: trec_eval_ref
 
       - name: Run C parity regression tests
-        if: matrix.rust-version == 'stable'
         run: |
-          make -C trec_eval -j2
-          cargo test -p te-rust --test regression
+          make -C trec_eval_ref -j2
+          TREC_EVAL_DIR=trec_eval_ref cargo test -p te-rust --test regression
